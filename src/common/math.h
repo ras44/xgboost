@@ -23,7 +23,7 @@ namespace common {
  * \return the transformed value.
  */
 XGBOOST_DEVICE inline double Sigmoid(double x) {
-  return 1.0f / (1.0f + expf(-x));
+  return 1.0 / (1.0 + exp(-x));
 }
 
 /*!
