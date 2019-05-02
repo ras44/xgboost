@@ -34,7 +34,7 @@ class TreePruner: public TreeUpdater {
               DMatrix *p_fmat,
               const std::vector<RegTree*> &trees) override {
     // rescale learning rate according to size of trees
-    float lr = param_.learning_rate;
+    double lr = param_.learning_rate;
     param_.learning_rate = lr / trees.size();
     for (auto tree : trees) {
       this->DoPrune(*tree);

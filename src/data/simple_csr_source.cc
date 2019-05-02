@@ -65,7 +65,7 @@ void SimpleCSRSource::CopyFrom(dmlc::Parser<uint32_t>* parser) {
     auto& offset_vec = page_.offset.HostVector();
     for (size_t i = batch.offset[0]; i < batch.offset[batch.size]; ++i) {
       uint32_t index = batch.index[i];
-      bst_float fvalue = batch.value == nullptr ? 1.0f : batch.value[i];
+      bst_double fvalue = batch.value == nullptr ? 1.0f : batch.value[i];
       data_vec.emplace_back(index, fvalue);
       this->info.num_col_ = std::max(this->info.num_col_,
                                     static_cast<uint64_t>(index + 1));

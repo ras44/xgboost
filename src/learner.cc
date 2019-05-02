@@ -38,7 +38,7 @@ enum class DataSplitMode : int {
 
 inline bool IsFloat(const std::string& str) {
   std::stringstream ss(str);
-  float f;
+  double f;
   return !((ss >> std::noskipws >> f).rdstate() ^ std::ios_base::eofbit);
 }
 
@@ -76,7 +76,7 @@ std::vector<std::string> Learner::DumpModel(const FeatureMap& fmap,
 /*! \brief training parameter for regression */
 struct LearnerModelParam : public dmlc::Parameter<LearnerModelParam> {
   /* \brief global bias */
-  bst_float base_score;
+  bst_double base_score;
   /* \brief number of features  */
   unsigned num_feature;
   /* \brief number of classes, if it is multi-class classification  */
@@ -562,7 +562,7 @@ class LearnerImpl : public Learner {
     return out;
   }
 
-  std::pair<std::string, bst_float> Evaluate(DMatrix* data,
+  std::pair<std::string, bst_double> Evaluate(DMatrix* data,
                                              std::string metric) {
     if (metric == "auto") metric = obj_->DefaultEvalMetric();
     std::unique_ptr<Metric> ev(Metric::Create(metric.c_str()));
@@ -574,7 +574,7 @@ class LearnerImpl : public Learner {
   }
 
   void Predict(DMatrix* data, bool output_margin,
-               HostDeviceVector<bst_float>* out_preds, unsigned ntree_limit,
+               HostDeviceVector<bst_double>* out_preds, unsigned ntree_limit,
                bool pred_leaf, bool pred_contribs, bool approx_contribs,
                bool pred_interactions) const override {
     if (pred_contribs) {
@@ -739,7 +739,7 @@ class LearnerImpl : public Learner {
    * \param ntree_limit limit number of trees used for boosted tree
    *   predictor, when it equals 0, this means we are using all the trees
    */
-  inline void PredictRaw(DMatrix* data, HostDeviceVector<bst_float>* out_preds,
+  inline void PredictRaw(DMatrix* data, HostDeviceVector<bst_double>* out_preds,
                          unsigned ntree_limit = 0) const {
     CHECK(gbm_ != nullptr)
         << "Predict must happen after Load or InitModel";
@@ -772,7 +772,7 @@ class LearnerImpl : public Learner {
   // name of objective function
   std::string name_obj_;
   // temporal storages for prediction
-  std::map<DMatrix*, HostDeviceVector<bst_float>> preds_;
+  std::map<DMatrix*, HostDeviceVector<bst_double>> preds_;
   // gradient pairs
   HostDeviceVector<GradientPair> gpair_;
 

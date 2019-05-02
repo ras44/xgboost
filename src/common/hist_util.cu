@@ -25,8 +25,8 @@ namespace common {
 using WXQSketch = HistCutMatrix::WXQSketch;
 
 __global__ void FindCutsK
-(WXQSketch::Entry* __restrict__ cuts, const bst_float* __restrict__ data,
- const float* __restrict__ cum_weights, int nsamples, int ncuts) {
+(WXQSketch::Entry* __restrict__ cuts, const bst_double* __restrict__ data,
+ const double* __restrict__ cum_weights, int nsamples, int ncuts) {
   // ncuts < nsamples
   int icut = threadIdx.x + blockIdx.x * blockDim.x;
   if (icut >= ncuts) {
@@ -39,26 +39,26 @@ __global__ void FindCutsK
   } else if (icut == ncuts - 1) {
     isample = nsamples - 1;
   } else {
-    bst_float rank = cum_weights[nsamples - 1] / static_cast<float>(ncuts - 1)
-      * static_cast<float>(icut);
+    bst_double rank = cum_weights[nsamples - 1] / static_cast<double>(ncuts - 1)
+      * static_cast<double>(icut);
     // -1 is used because cum_weights is an inclusive sum
     isample = dh::UpperBound(cum_weights, nsamples, rank);
     isample = max(0, min(isample, nsamples - 1));
   }
   // repeated values will be filtered out on the CPU
-  bst_float rmin = isample > 0 ? cum_weights[isample - 1] : 0;
-  bst_float rmax = cum_weights[isample];
+  bst_double rmin = isample > 0 ? cum_weights[isample - 1] : 0;
+  bst_double rmax = cum_weights[isample];
   cuts[icut] = WXQSketch::Entry(rmin, rmax, rmax - rmin, data[isample]);
 }
 
 // predictate for thrust filtering that returns true if the element is not a NaN
 struct IsNotNaN {
-  __device__ bool operator()(float a) const { return !isnan(a); }
+  __device__ bool operator()(double a) const { return !isnan(a); }
 };
 
 __global__ void UnpackFeaturesK
-(float* __restrict__ fvalues, float* __restrict__ feature_weights,
- const size_t* __restrict__ row_ptrs, const float* __restrict__ weights,
+(double* __restrict__ fvalues, double* __restrict__ feature_weights,
+ const size_t* __restrict__ row_ptrs, const double* __restrict__ weights,
  Entry* entries, size_t nrows_array, int ncols, size_t row_begin_ptr,
  size_t nrows) {
   size_t irow = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
@@ -100,13 +100,13 @@ struct GPUSketcher {
     thrust::device_vector<size_t> row_ptrs_;
     std::vector<WXQSketch::SummaryContainer> summaries_;
     thrust::device_vector<Entry> entries_;
-    thrust::device_vector<bst_float> fvalues_;
-    thrust::device_vector<bst_float> feature_weights_;
-    thrust::device_vector<bst_float> fvalues_cur_;
+    thrust::device_vector<bst_double> fvalues_;
+    thrust::device_vector<bst_double> feature_weights_;
+    thrust::device_vector<bst_double> fvalues_cur_;
     thrust::device_vector<WXQSketch::Entry> cuts_d_;
     thrust::host_vector<WXQSketch::Entry> cuts_h_;
-    thrust::device_vector<bst_float> weights_;
-    thrust::device_vector<bst_float> weights2_;
+    thrust::device_vector<bst_double> weights_;
+    thrust::device_vector<bst_double> weights2_;
     std::vector<size_t> n_cuts_cur_;
     thrust::device_vector<size_t> num_elements_;
     thrust::device_vector<char> tmp_storage_;
@@ -193,7 +193,7 @@ struct GPUSketcher {
       cub::DeviceReduce::ReduceByKey
         (nullptr, cur_tmp_size, fvalues_.begin(),
          fvalues_cur_.begin(), weights_.begin(), weights2_.begin(),
-         num_elements_.begin(), thrust::maximum<bst_float>(), gpu_batch_nrows_);
+         num_elements_.begin(), thrust::maximum<bst_double>(), gpu_batch_nrows_);
       tmp_size = std::max(tmp_size, cur_tmp_size);
       // size for filtering
       cub::DeviceSelect::If
@@ -251,7 +251,7 @@ struct GPUSketcher {
       cub::DeviceReduce::ReduceByKey
         (tmp_storage_.data().get(), tmp_size, fvalues_begin,
          fvalues_cur_.begin(), weights_.begin(), weights2_.begin(),
-         num_elements_.begin(), thrust::maximum<bst_float>(), nfvalues_cur);
+         num_elements_.begin(), thrust::maximum<bst_double>(), nfvalues_cur);
       size_t n_unique = 0;
       thrust::copy_n(num_elements_.begin(), 1, &n_unique);
 
@@ -259,12 +259,12 @@ struct GPUSketcher {
       n_cuts_cur_[icol] = std::min(n_cuts_, n_unique);
       // if less elements than cuts: copy all elements with their weights
       if (n_cuts_ > n_unique) {
-        float* weights2_ptr = weights2_.data().get();
-        float* fvalues_ptr = fvalues_cur_.data().get();
+        double* weights2_ptr = weights2_.data().get();
+        double* fvalues_ptr = fvalues_cur_.data().get();
         WXQSketch::Entry* cuts_ptr = cuts_d_.data().get() + icol * n_cuts_;
         dh::LaunchN(device_, n_unique, [=]__device__(size_t i) {
-            bst_float rmax = weights2_ptr[i];
-            bst_float rmin = i > 0 ? weights2_ptr[i - 1] : 0;
+            bst_double rmax = weights2_ptr[i];
+            bst_double rmin = i > 0 ? weights2_ptr[i - 1] : 0;
             cuts_ptr[i] = WXQSketch::Entry(rmin, rmax, rmax - rmin, fvalues_ptr[i]);
           });
       } else if (n_cuts_cur_[icol] > 0) {
@@ -301,7 +301,7 @@ struct GPUSketcher {
         dh::safe_cuda
           (cudaMemcpyAsync(weights_.data().get(),
                       weights_vec.data() + row_begin_ + batch_row_begin,
-                      batch_nrows * sizeof(bst_float), cudaMemcpyDefault));
+                      batch_nrows * sizeof(bst_double), cudaMemcpyDefault));
       }
 
       // unpack the features; also unpack weights if present

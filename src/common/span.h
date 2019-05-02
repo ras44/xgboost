@@ -364,10 +364,10 @@ XGBOOST_DEVICE bool LexicographicalCompare(InputIt1 first1, InputIt1 last1,
  *       purpose of Span:
  *
  *       \code{.cpp}
- *       Span<float> span {arr_a};
+ *       Span<double> span {arr_a};
  *       auto beg = span.begin();
  *
- *       Span<float> span_b = arr_b;
+ *       Span<double> span_b = arr_b;
  *       span = span_b;
  *
  *       delete arr_a;

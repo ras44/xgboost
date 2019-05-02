@@ -22,7 +22,7 @@ namespace common {
  * \param x input parameter
  * \return the transformed value.
  */
-XGBOOST_DEVICE inline float Sigmoid(float x) {
+XGBOOST_DEVICE inline double Sigmoid(double x) {
   return 1.0f / (1.0f + expf(-x));
 }
 
@@ -36,12 +36,12 @@ XGBOOST_DEVICE inline float Sigmoid(float x) {
  */
 template <typename Iterator>
 XGBOOST_DEVICE inline void Softmax(Iterator start, Iterator end) {
-  static_assert(std::is_same<bst_float,
+  static_assert(std::is_same<bst_double,
                 typename std::remove_reference<
                   decltype(std::declval<Iterator>().operator*())>::type
                 >::value,
-                "Values should be of type bst_float");
-  bst_float wmax = *start;
+                "Values should be of type bst_double");
+  bst_double wmax = *start;
   for (Iterator i = start+1; i != end; ++i) {
     wmax = fmaxf(*i, wmax);
   }
@@ -51,7 +51,7 @@ XGBOOST_DEVICE inline void Softmax(Iterator start, Iterator end) {
     wsum += *i;
   }
   for (Iterator i = start; i != end; ++i) {
-    *i /= static_cast<float>(wsum);
+    *i /= static_cast<double>(wsum);
   }
 }
 
@@ -77,7 +77,7 @@ XGBOOST_DEVICE inline Iterator FindMaxIndex(Iterator begin, Iterator end) {
  * \param y right input operand
  * \return  log(exp(x) + exp(y))
  */
-inline float LogSum(float x, float y) {
+inline double LogSum(double x, double y) {
   if (x < y) {
     return y + std::log(std::exp(x - y) + 1.0f);
   } else {
@@ -93,12 +93,12 @@ inline float LogSum(float x, float y) {
  * \tparam Iterator The type of the iterator.
  */
 template<typename Iterator>
-inline float LogSum(Iterator begin, Iterator end) {
-  float mx = *begin;
+inline double LogSum(Iterator begin, Iterator end) {
+  double mx = *begin;
   for (Iterator it = begin; it != end; ++it) {
     mx = std::max(mx, *it);
   }
-  float sum = 0.0f;
+  double sum = 0.0f;
   for (Iterator it = begin; it != end; ++it) {
     sum += std::exp(*it - mx);
   }
@@ -106,12 +106,12 @@ inline float LogSum(Iterator begin, Iterator end) {
 }
 
 // comparator functions for sorting pairs in descending order
-inline static bool CmpFirst(const std::pair<float, unsigned> &a,
-                            const std::pair<float, unsigned> &b) {
+inline static bool CmpFirst(const std::pair<double, unsigned> &a,
+                            const std::pair<double, unsigned> &b) {
   return a.first > b.first;
 }
-inline static bool CmpSecond(const std::pair<float, unsigned> &a,
-                             const std::pair<float, unsigned> &b) {
+inline static bool CmpSecond(const std::pair<double, unsigned> &a,
+                             const std::pair<double, unsigned> &b) {
   return a.second > b.second;
 }
 

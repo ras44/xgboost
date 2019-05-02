@@ -92,12 +92,12 @@ struct HistCutMatrix {
   /*! \brief Unit pointer to rows by element position */
   std::vector<uint32_t> row_ptr;
   /*! \brief minimum value of each feature */
-  std::vector<bst_float> min_val;
+  std::vector<bst_double> min_val;
   /*! \brief the cut field */
-  std::vector<bst_float> cut;
+  std::vector<bst_double> cut;
   uint32_t GetBinIdx(const Entry &e);
 
-  using WXQSketch = common::WXQuantileSketch<bst_float, bst_float>;
+  using WXQSketch = common::WXQuantileSketch<bst_double, bst_double>;
 
   // create histogram cut matrix given statistics from data
   // using approximate quantile sketch approach
@@ -128,7 +128,7 @@ using GHistIndexRow = Span<uint32_t const>;
 
 /*!
  * \brief preprocessed global index matrix, in CSR format
- *  Transform floating values to integer index in histogram
+ *  Transform binary64 values to integer index in histogram
  *  This is a global histogram index.
  */
 struct GHistIndexMatrix {

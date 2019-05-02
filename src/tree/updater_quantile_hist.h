@@ -86,7 +86,7 @@ class QuantileHistMaker: public TreeUpdater {
               const std::vector<RegTree*>& trees) override;
 
   bool UpdatePredictionCache(const DMatrix* data,
-                             HostDeviceVector<bst_float>* out_preds) override;
+                             HostDeviceVector<bst_double>* out_preds) override;
 
  protected:
   // training parameter
@@ -104,9 +104,9 @@ class QuantileHistMaker: public TreeUpdater {
     /*! \brief statics for node entry */
     GradStats stats;
     /*! \brief loss of this node, without split */
-    bst_float root_gain;
+    bst_double root_gain;
     /*! \brief weight calculated related to current data */
-    float weight;
+    double weight;
     /*! \brief current best solution */
     SplitEntry best;
     // constructor
@@ -159,16 +159,16 @@ class QuantileHistMaker: public TreeUpdater {
     }
 
     bool UpdatePredictionCache(const DMatrix* data,
-                               HostDeviceVector<bst_float>* p_out_preds);
+                               HostDeviceVector<bst_double>* p_out_preds);
 
    protected:
     /* tree growing policies */
     struct ExpandEntry {
       int nid;
       int depth;
-      bst_float loss_chg;
+      bst_double loss_chg;
       unsigned timestamp;
-      ExpandEntry(int nid, int depth, bst_float loss_chg, unsigned tstmp)
+      ExpandEntry(int nid, int depth, bst_double loss_chg, unsigned tstmp)
               : nid(nid), depth(depth), loss_chg(loss_chg), timestamp(tstmp) {}
     };
 
@@ -288,7 +288,7 @@ class QuantileHistMaker: public TreeUpdater {
                of InitNewNode() */
     uint32_t fid_least_bins_;
     /*! \brief local prediction cache; maps node id to leaf value */
-    std::vector<float> leaf_value_cache_;
+    std::vector<double> leaf_value_cache_;
 
     GHistBuilder hist_builder_;
     std::unique_ptr<TreeUpdater> pruner_;

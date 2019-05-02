@@ -319,15 +319,15 @@ void CLIPredict(const CLIParam& param) {
   learner->Configure(param.cfg);
 
   LOG(INFO) << "start prediction...";
-  HostDeviceVector<bst_float> preds;
+  HostDeviceVector<bst_double> preds;
   learner->Predict(dtest.get(), param.pred_margin, &preds, param.ntree_limit);
   LOG(CONSOLE) << "writing prediction to " << param.name_pred;
 
   std::unique_ptr<dmlc::Stream> fo(
       dmlc::Stream::Create(param.name_pred.c_str(), "w"));
   dmlc::ostream os(fo.get());
-  for (bst_float p : preds.ConstHostVector()) {
-    os << std::setprecision(std::numeric_limits<bst_float>::max_digits10 + 2)
+  for (bst_double p : preds.ConstHostVector()) {
+    os << std::setprecision(std::numeric_limits<bst_double>::max_digits10 + 2)
        << p << '\n';
   }
   // force flush before fo destruct.

@@ -140,9 +140,9 @@ __forceinline__ __device__ int BinarySearchRow(
 struct ELLPackMatrix {
   common::Span<uint32_t> feature_segments;
   /*! \brief minimum value for each feature. */
-  common::Span<bst_float> min_fvalue;
+  common::Span<bst_double> min_fvalue;
   /*! \brief Cut. */
-  common::Span<bst_float> gidx_fvalue_map;
+  common::Span<bst_double> gidx_fvalue_map;
   /*! \brief row length for ELLPack. */
   size_t row_stride{0};
   common::CompressedIterator<uint32_t> gidx_iter;
@@ -153,7 +153,7 @@ struct ELLPackMatrix {
 
   // Get a matrix element, uses binary search for look up
   // Return NaN if missing
-  __device__ bst_float GetElement(size_t ridx, size_t fidx) const {
+  __device__ bst_double GetElement(size_t ridx, size_t fidx) const {
     auto row_begin = row_stride * ridx;
     auto row_end = row_begin + row_stride;
     auto gidx = -1;
@@ -170,8 +170,8 @@ struct ELLPackMatrix {
     return gidx_fvalue_map[gidx];
   }
   void Init(common::Span<uint32_t> feature_segments,
-    common::Span<bst_float> min_fvalue,
-    common::Span<bst_float> gidx_fvalue_map, size_t row_stride,
+    common::Span<bst_double> min_fvalue,
+    common::Span<bst_double> gidx_fvalue_map, size_t row_stride,
     common::CompressedIterator<uint32_t> gidx_iter, bool is_dense,
     int null_gidx_value) {
     this->feature_segments = feature_segments;
@@ -186,15 +186,15 @@ struct ELLPackMatrix {
 
 // With constraints
 template <typename GradientPairT>
-XGBOOST_DEVICE float inline LossChangeMissing(
+XGBOOST_DEVICE double inline LossChangeMissing(
     const GradientPairT& scan, const GradientPairT& missing, const GradientPairT& parent_sum,
-    const float& parent_gain, const GPUTrainingParam& param, int constraint,
+    const double& parent_gain, const GPUTrainingParam& param, int constraint,
     const ValueConstraint& value_constraint,
     bool& missing_left_out) {  // NOLINT
-  float missing_left_gain = value_constraint.CalcSplitGain(
+  double missing_left_gain = value_constraint.CalcSplitGain(
       param, constraint, GradStats(scan + missing),
       GradStats(parent_sum - (scan + missing)));
-  float missing_right_gain = value_constraint.CalcSplitGain(
+  double missing_right_gain = value_constraint.CalcSplitGain(
       param, constraint, GradStats(scan), GradStats(parent_sum - scan));
 
   if (missing_left_gain >= missing_right_gain) {
@@ -263,7 +263,7 @@ __device__ void EvaluateFeature(
 
   GradientSumT const parent_sum = GradientSumT(node.sum_gradients);
   GradientSumT const missing = parent_sum - feature_sum;
-  float const null_gain = -std::numeric_limits<bst_float>::infinity();
+  double const null_gain = -std::numeric_limits<bst_double>::infinity();
 
   SumCallbackOp<GradientSumT> prefix_op =
       SumCallbackOp<GradientSumT>();
@@ -278,7 +278,7 @@ __device__ void EvaluateFeature(
 
     // Whether the gradient of missing values is put to the left side.
     bool missing_left = true;
-    float gain = null_gain;
+    double gain = null_gain;
     if (thread_active) {
       gain = LossChangeMissing(bin, missing, parent_sum, node.root_gain, param,
                                constraint, value_constraint, missing_left);
@@ -287,11 +287,11 @@ __device__ void EvaluateFeature(
     __syncthreads();
 
     // Find thread with best gain
-    cub::KeyValuePair<int, float> tuple(threadIdx.x, gain);
-    cub::KeyValuePair<int, float> best =
+    cub::KeyValuePair<int, double> tuple(threadIdx.x, gain);
+    cub::KeyValuePair<int, double> best =
         MaxReduceT(temp_storage->max_reduce).Reduce(tuple, cub::ArgMax());
 
-    __shared__ cub::KeyValuePair<int, float> block_max;
+    __shared__ cub::KeyValuePair<int, double> block_max;
     if (threadIdx.x == 0) {
       block_max = best;
     }
@@ -301,7 +301,7 @@ __device__ void EvaluateFeature(
     // Best thread updates split
     if (threadIdx.x == block_max.key) {
       int split_gidx = (scan_begin + threadIdx.x) - 1;
-      float fvalue;
+      double fvalue;
       if (split_gidx < static_cast<int>(gidx_begin)) {
         fvalue =  matrix.min_fvalue[fidx];
       } else {
@@ -328,7 +328,7 @@ __global__ void EvaluateSplitKernel(
     ValueConstraint value_constraint,
     common::Span<int> d_monotonic_constraints) {
   // KeyValuePair here used as threadIdx.x -> gain_value
-  using ArgMaxT = cub::KeyValuePair<int, float>;
+  using ArgMaxT = cub::KeyValuePair<int, double>;
   using BlockScanT =
       cub::BlockScan<GradientSumT, BLOCK_THREADS, cub::BLOCK_SCAN_WARP_SCANS>;
   using MaxReduceT = cub::BlockReduce<ArgMaxT, BLOCK_THREADS>;
@@ -459,11 +459,11 @@ class DeviceHistogram {
 };
 
 struct CalcWeightTrainParam {
-  float min_child_weight;
-  float reg_alpha;
-  float reg_lambda;
-  float max_delta_step;
-  float learning_rate;
+  double min_child_weight;
+  double reg_alpha;
+  double reg_lambda;
+  double max_delta_step;
+  double learning_rate;
   XGBOOST_DEVICE explicit CalcWeightTrainParam(const TrainParam& p)
       : min_child_weight(p.min_child_weight),
         reg_alpha(p.reg_alpha),
@@ -479,7 +479,7 @@ __global__ void CompressBinEllpackKernel(
     common::CompressedByteT* __restrict__ buffer,  // gidx_buffer
     const size_t* __restrict__ row_ptrs,           // row offset of input data
     const Entry* __restrict__ entries,      // One batch of input data
-    const float* __restrict__ cuts,         // HistCutMatrix::cut
+    const double* __restrict__ cuts,         // HistCutMatrix::cut
     const uint32_t* __restrict__ cut_rows,  // HistCutMatrix::row_ptrs
     size_t base_row,                        // batch_row_begin
     size_t n_rows,
@@ -497,9 +497,9 @@ __global__ void CompressBinEllpackKernel(
   if (ifeature < row_length) {
     Entry entry = entries[row_ptrs[irow] - row_ptr_begin + ifeature];
     int feature = entry.index;
-    float fvalue = entry.fvalue;
+    double fvalue = entry.fvalue;
     // {feature_cuts, ncuts} forms the array of cuts of `feature'.
-    const float *feature_cuts = &cuts[cut_rows[feature]];
+    const double *feature_cuts = &cuts[cut_rows[feature]];
     int ncuts = cut_rows[feature + 1] - cut_rows[feature];
     // Assigning the bin in current entry.
     // S.t.: fvalue < feature_cuts[bin]
@@ -648,9 +648,9 @@ struct DeviceShard {
   /*! \brief row_ptr form HistCutMatrix. */
   common::Span<uint32_t> feature_segments;
   /*! \brief minimum value for each feature. */
-  common::Span<bst_float> min_fvalue;
+  common::Span<bst_double> min_fvalue;
   /*! \brief Cut. */
-  common::Span<bst_float> gidx_fvalue_map;
+  common::Span<bst_double> gidx_fvalue_map;
   /*! \brief global index of histogram, which is stored in ELLPack format. */
   common::Span<common::CompressedByteT> gidx_buffer;
 
@@ -661,7 +661,7 @@ struct DeviceShard {
   common::Span<GradientPair> gpair;
 
   common::Span<int> monotone_constraints;
-  common::Span<bst_float> prediction_cache;
+  common::Span<bst_double> prediction_cache;
 
   /*! \brief Sum gradient for each node. */
   std::vector<GradientPair> node_sum_gradients;
@@ -908,7 +908,7 @@ struct DeviceShard {
         device_id, segment.Size(), [=] __device__(bst_uint idx) {
           idx += segment.begin;
           bst_uint ridx = d_ridx[idx];
-          bst_float element = d_matrix.GetElement(ridx, split_node.SplitIndex());
+          bst_double element = d_matrix.GetElement(ridx, split_node.SplitIndex());
           // Missing value
           int new_position = 0;
           if (isnan(element)) {
@@ -983,7 +983,7 @@ struct DeviceShard {
       bst_uint ridx = d_ridx[idx];
 
       while (!node.IsLeaf()) {
-        bst_float element = d_matrix.GetElement(ridx, node.SplitIndex());
+        bst_double element = d_matrix.GetElement(ridx, node.SplitIndex());
         // Missing value
         if (isnan(element)) {
           position = node.DefaultChild();
@@ -1000,11 +1000,11 @@ struct DeviceShard {
     });
   }
 
-  void UpdatePredictionCache(bst_float* out_preds_d) {
+  void UpdatePredictionCache(bst_double* out_preds_d) {
     dh::safe_cuda(cudaSetDevice(device_id));
     if (!prediction_cache_initialised) {
       dh::safe_cuda(cudaMemcpyAsync(prediction_cache.data(), out_preds_d,
-                                    prediction_cache.size() * sizeof(bst_float),
+                                    prediction_cache.size() * sizeof(bst_double),
                                     cudaMemcpyDefault));
     }
     prediction_cache_initialised = true;
@@ -1023,14 +1023,14 @@ struct DeviceShard {
     dh::LaunchN(
         device_id, prediction_cache.size(), [=] __device__(int local_idx) {
           int pos = d_position[local_idx];
-          bst_float weight = CalcWeight(param_d, d_node_sum_gradients[pos]);
+          bst_double weight = CalcWeight(param_d, d_node_sum_gradients[pos]);
           d_prediction_cache[d_ridx[local_idx]] +=
               weight * param_d.learning_rate;
         });
 
     dh::safe_cuda(cudaMemcpy(
         out_preds_d, prediction_cache.data(),
-        prediction_cache.size() * sizeof(bst_float), cudaMemcpyDefault));
+        prediction_cache.size() * sizeof(bst_double), cudaMemcpyDefault));
   }
 
   void AllReduceHist(int nidx, dh::AllReducer* reducer) {
@@ -1124,8 +1124,8 @@ struct DeviceShard {
     dh::SumReduction(temp_memory, gpair, node_sum_gradients_d,
                      gpair.size());
     reducer->AllReduceSum(
-        shard_idx, reinterpret_cast<float*>(node_sum_gradients_d.data()),
-        reinterpret_cast<float*>(node_sum_gradients_d.data()), 2);
+        shard_idx, reinterpret_cast<double*>(node_sum_gradients_d.data()),
+        reinterpret_cast<double*>(node_sum_gradients_d.data()), 2);
     reducer->Synchronize(device_id);
     dh::safe_cuda(cudaMemcpy(node_sum_gradients.data(),
                              node_sum_gradients_d.data(), sizeof(GradientPair),
@@ -1394,7 +1394,7 @@ class GPUHistMakerSpecialised{
               const std::vector<RegTree*>& trees) {
     monitor_.StartCuda("Update");
     // rescale learning rate according to size of trees
-    float lr = param_.learning_rate;
+    double lr = param_.learning_rate;
     param_.learning_rate = lr / trees.size();
     ValueConstraint::Init(&param_, dmat->Info().num_col_);
     // build tree
@@ -1522,7 +1522,7 @@ class GPUHistMakerSpecialised{
   }
 
   bool UpdatePredictionCache(
-      const DMatrix* data, HostDeviceVector<bst_float>* p_out_preds) {
+      const DMatrix* data, HostDeviceVector<bst_double>* p_out_preds) {
     if (shards_.empty() || p_last_fmat_ == nullptr || p_last_fmat_ != data) {
       return false;
     }
@@ -1569,11 +1569,11 @@ class GPUHistMaker : public TreeUpdater {
   void Init(
       const std::vector<std::pair<std::string, std::string>>& args) override {
     hist_maker_param_.InitAllowUnknown(args);
-    float_maker_.reset();
+    double_maker_.reset();
     double_maker_.reset();
     if (hist_maker_param_.single_precision_histogram) {
-      float_maker_.reset(new GPUHistMakerSpecialised<GradientPair>());
-      float_maker_->Init(args);
+      double_maker_.reset(new GPUHistMakerSpecialised<GradientPair>());
+      double_maker_->Init(args);
     } else {
       double_maker_.reset(new GPUHistMakerSpecialised<GradientPairPrecise>());
       double_maker_->Init(args);
@@ -1583,16 +1583,16 @@ class GPUHistMaker : public TreeUpdater {
   void Update(HostDeviceVector<GradientPair>* gpair, DMatrix* dmat,
               const std::vector<RegTree*>& trees) override {
     if (hist_maker_param_.single_precision_histogram) {
-      float_maker_->Update(gpair, dmat, trees);
+      double_maker_->Update(gpair, dmat, trees);
     } else {
       double_maker_->Update(gpair, dmat, trees);
     }
   }
 
   bool UpdatePredictionCache(
-      const DMatrix* data, HostDeviceVector<bst_float>* p_out_preds) override {
+      const DMatrix* data, HostDeviceVector<bst_double>* p_out_preds) override {
     if (hist_maker_param_.single_precision_histogram) {
-      return float_maker_->UpdatePredictionCache(data, p_out_preds);
+      return double_maker_->UpdatePredictionCache(data, p_out_preds);
     } else {
       return double_maker_->UpdatePredictionCache(data, p_out_preds);
     }
@@ -1600,7 +1600,7 @@ class GPUHistMaker : public TreeUpdater {
 
  private:
   GPUHistMakerTrainParam hist_maker_param_;
-  std::unique_ptr<GPUHistMakerSpecialised<GradientPair>> float_maker_;
+  std::unique_ptr<GPUHistMakerSpecialised<GradientPair>> double_maker_;
   std::unique_ptr<GPUHistMakerSpecialised<GradientPairPrecise>> double_maker_;
 };
 

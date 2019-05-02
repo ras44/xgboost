@@ -106,7 +106,7 @@ class DeviceShard {
     return dh::SumReduction(temp_, perm, ridx_end_ - ridx_begin_);
   }
 
-  void UpdateBiasResidual(float dbias, int group_idx, int num_groups) {
+  void UpdateBiasResidual(double dbias, int group_idx, int num_groups) {
     if (dbias == 0.0f) return;
     auto d_gpair = gpair_;
     dh::LaunchN(device_id_, ridx_end_ - ridx_begin_, [=] __device__(size_t idx) {
@@ -132,7 +132,7 @@ class DeviceShard {
     return dh::SumReduction(temp_, multiply_iterator, col_size);
   }
 
-  void UpdateResidual(float dw, int group_idx, int num_groups, int fidx) {
+  void UpdateResidual(double dw, int group_idx, int num_groups, int fidx) {
     common::Span<GradientPair> d_gpair = gpair_;
     common::Span<Entry> d_col = data_.subspan(row_ptr_[fidx]);
     size_t col_size = row_ptr_[fidx + 1] - row_ptr_[fidx];
@@ -248,7 +248,7 @@ class GPUCoordinateUpdater : public LinearUpdater {
             return GradientPair(0, 0);
           });
 
-      auto dbias = static_cast<float>(
+      auto dbias = static_cast<double>(
           tparam_.learning_rate *
           CoordinateDeltaBias(grad.GetGrad(), grad.GetHess()));
       model->bias()[group_idx] += dbias;
@@ -266,7 +266,7 @@ class GPUCoordinateUpdater : public LinearUpdater {
   void UpdateFeature(int fidx, int group_idx,
                      std::vector<GradientPair> *in_gpair,
                      gbm::GBLinearModel *model) {
-    bst_float &w = (*model)[fidx][group_idx];
+    bst_double &w = (*model)[fidx][group_idx];
     // Get gradient
     auto grad = dh::ReduceShards<GradientPair>(
         &shards_, [&](std::unique_ptr<DeviceShard> &shard) {
@@ -277,7 +277,7 @@ class GPUCoordinateUpdater : public LinearUpdater {
           return GradientPair(0, 0);
         });
 
-    auto dw = static_cast<float>(tparam_.learning_rate *
+    auto dw = static_cast<double>(tparam_.learning_rate *
                                  CoordinateDelta(grad.GetGrad(), grad.GetHess(),
                                                  w, tparam_.reg_alpha_denorm,
                                                  tparam_.reg_lambda_denorm));

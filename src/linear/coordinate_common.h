@@ -82,7 +82,7 @@ inline std::pair<double, double> GetGradient(int group_idx, int num_group, int f
     auto col = batch[fidx];
     const auto ndata = static_cast<bst_omp_uint>(col.size());
     for (bst_omp_uint j = 0; j < ndata; ++j) {
-      const bst_float v = col[j].fvalue;
+      const bst_double v = col[j].fvalue;
       auto &p = gpair[col[j].index * num_group + group_idx];
       if (p.GetHess() < 0.0f) continue;
       sum_grad += p.GetGrad() * v;
@@ -112,7 +112,7 @@ inline std::pair<double, double> GetGradientParallel(int group_idx, int num_grou
     const auto ndata = static_cast<bst_omp_uint>(col.size());
 #pragma omp parallel for schedule(static) reduction(+ : sum_grad, sum_hess)
     for (bst_omp_uint j = 0; j < ndata; ++j) {
-      const bst_float v = col[j].fvalue;
+      const bst_double v = col[j].fvalue;
       auto &p = gpair[col[j].index * num_group + group_idx];
       if (p.GetHess() < 0.0f) continue;
       sum_grad += p.GetGrad() * v;
@@ -159,7 +159,7 @@ inline std::pair<double, double> GetBiasGradientParallel(int group_idx, int num_
  * \param p_fmat    The input feature matrix.
  */
 inline void UpdateResidualParallel(int fidx, int group_idx, int num_group,
-                                   float dw, std::vector<GradientPair> *in_gpair,
+                                   double dw, std::vector<GradientPair> *in_gpair,
                                    DMatrix *p_fmat) {
   if (dw == 0.0f) return;
   for (const auto &batch : p_fmat->GetColumnBatches()) {
@@ -184,7 +184,7 @@ inline void UpdateResidualParallel(int fidx, int group_idx, int num_group,
  * \param in_gpair  The gradient vector to be updated.
  * \param p_fmat    The input feature matrix.
  */
-inline void UpdateBiasResidualParallel(int group_idx, int num_group, float dbias,
+inline void UpdateBiasResidualParallel(int group_idx, int num_group, double dbias,
                                        std::vector<GradientPair> *in_gpair,
                                        DMatrix *p_fmat) {
   if (dbias == 0.0f) return;
@@ -220,7 +220,7 @@ class FeatureSelector {
   virtual void Setup(const gbm::GBLinearModel &model,
                      const std::vector<GradientPair> &gpair,
                      DMatrix *p_fmat,
-                     float alpha, float lambda, int param) {}
+                     double alpha, double lambda, int param) {}
   /**
    * \brief Select next coordinate to update.
    *
@@ -238,7 +238,7 @@ class FeatureSelector {
                           const gbm::GBLinearModel &model,
                           int group_idx,
                           const std::vector<GradientPair> &gpair,
-                          DMatrix *p_fmat, float alpha, float lambda) = 0;
+                          DMatrix *p_fmat, double alpha, double lambda) = 0;
 };
 
 /**
@@ -248,7 +248,7 @@ class CyclicFeatureSelector : public FeatureSelector {
  public:
   int NextFeature(int iteration, const gbm::GBLinearModel &model,
                   int group_idx, const std::vector<GradientPair> &gpair,
-                  DMatrix *p_fmat, float alpha, float lambda) override {
+                  DMatrix *p_fmat, double alpha, double lambda) override {
     return iteration % model.param.num_feature;
   }
 };
@@ -261,7 +261,7 @@ class ShuffleFeatureSelector : public FeatureSelector {
  public:
   void Setup(const gbm::GBLinearModel &model,
              const std::vector<GradientPair> &gpair,
-             DMatrix *p_fmat, float alpha, float lambda, int param) override {
+             DMatrix *p_fmat, double alpha, double lambda, int param) override {
     if (feat_index_.size() == 0) {
       feat_index_.resize(model.param.num_feature);
       std::iota(feat_index_.begin(), feat_index_.end(), 0);
@@ -271,7 +271,7 @@ class ShuffleFeatureSelector : public FeatureSelector {
 
   int NextFeature(int iteration, const gbm::GBLinearModel &model,
                   int group_idx, const std::vector<GradientPair> &gpair,
-                  DMatrix *p_fmat, float alpha, float lambda) override {
+                  DMatrix *p_fmat, double alpha, double lambda) override {
     return feat_index_[iteration % model.param.num_feature];
   }
 
@@ -287,7 +287,7 @@ class RandomFeatureSelector : public FeatureSelector {
  public:
   int NextFeature(int iteration, const gbm::GBLinearModel &model,
                   int group_idx, const std::vector<GradientPair> &gpair,
-                  DMatrix *p_fmat, float alpha, float lambda) override {
+                  DMatrix *p_fmat, double alpha, double lambda) override {
     return common::GlobalRandom()() % model.param.num_feature;
   }
 };
@@ -305,7 +305,7 @@ class GreedyFeatureSelector : public FeatureSelector {
  public:
   void Setup(const gbm::GBLinearModel &model,
              const std::vector<GradientPair> &gpair,
-             DMatrix *p_fmat, float alpha, float lambda, int param) override {
+             DMatrix *p_fmat, double alpha, double lambda, int param) override {
     top_k_ = static_cast<bst_uint>(param);
     const bst_uint ngroup = model.param.num_output_group;
     if (param <= 0) top_k_ = std::numeric_limits<bst_uint>::max();
@@ -320,7 +320,7 @@ class GreedyFeatureSelector : public FeatureSelector {
 
   int NextFeature(int iteration, const gbm::GBLinearModel &model,
                   int group_idx, const std::vector<GradientPair> &gpair,
-                  DMatrix *p_fmat, float alpha, float lambda) override {
+                  DMatrix *p_fmat, double alpha, double lambda) override {
     // k-th selected feature for a group
     auto k = counter_[group_idx]++;
     // stop after either reaching top-K or going through all the features in a group
@@ -337,7 +337,7 @@ class GreedyFeatureSelector : public FeatureSelector {
         const bst_uint ndata = col.size();
         auto &sums = gpair_sums_[group_idx * nfeat + i];
         for (bst_uint j = 0u; j < ndata; ++j) {
-          const bst_float v = col[j].fvalue;
+          const bst_double v = col[j].fvalue;
           auto &p = gpair[col[j].index * ngroup + group_idx];
           if (p.GetHess() < 0.f) continue;
           sums.first += p.GetGrad() * v;
@@ -350,7 +350,7 @@ class GreedyFeatureSelector : public FeatureSelector {
     double best_weight_update = 0.0f;
     for (bst_omp_uint fidx = 0; fidx < nfeat; ++fidx) {
       auto &s = gpair_sums_[group_idx * nfeat + fidx];
-      float dw = std::abs(static_cast<bst_float>(
+      double dw = std::abs(static_cast<bst_double>(
                  CoordinateDelta(s.first, s.second, model[fidx][group_idx], alpha, lambda)));
       if (dw > best_weight_update) {
         best_weight_update = dw;
@@ -381,7 +381,7 @@ class ThriftyFeatureSelector : public FeatureSelector {
  public:
   void Setup(const gbm::GBLinearModel &model,
              const std::vector<GradientPair> &gpair,
-             DMatrix *p_fmat, float alpha, float lambda, int param) override {
+             DMatrix *p_fmat, double alpha, double lambda, int param) override {
     top_k_ = static_cast<bst_uint>(param);
     if (param <= 0) top_k_ = std::numeric_limits<bst_uint>::max();
     const bst_uint ngroup = model.param.num_output_group;
@@ -404,7 +404,7 @@ class ThriftyFeatureSelector : public FeatureSelector {
         for (bst_uint gid = 0u; gid < ngroup; ++gid) {
           auto &sums = gpair_sums_[gid * nfeat + i];
           for (bst_uint j = 0u; j < ndata; ++j) {
-            const bst_float v = col[j].fvalue;
+            const bst_double v = col[j].fvalue;
             auto &p = gpair[col[j].index * ngroup + gid];
             if (p.GetHess() < 0.f) continue;
             sums.first += p.GetGrad() * v;
@@ -416,13 +416,13 @@ class ThriftyFeatureSelector : public FeatureSelector {
     // rank by descending weight magnitude within the groups
     std::fill(deltaw_.begin(), deltaw_.end(), 0.f);
     std::iota(sorted_idx_.begin(), sorted_idx_.end(), 0);
-    bst_float *pdeltaw = &deltaw_[0];
+    bst_double *pdeltaw = &deltaw_[0];
     for (bst_uint gid = 0u; gid < ngroup; ++gid) {
       // Calculate univariate weight changes
       for (bst_omp_uint i = 0; i < nfeat; ++i) {
         auto ii = gid * nfeat + i;
         auto &s = gpair_sums_[ii];
-        deltaw_[ii] = static_cast<bst_float>(CoordinateDelta(
+        deltaw_[ii] = static_cast<bst_double>(CoordinateDelta(
                        s.first, s.second, model[i][gid], alpha, lambda));
       }
       // sort in descending order of deltaw abs values
@@ -437,7 +437,7 @@ class ThriftyFeatureSelector : public FeatureSelector {
 
   int NextFeature(int iteration, const gbm::GBLinearModel &model,
                   int group_idx, const std::vector<GradientPair> &gpair,
-                  DMatrix *p_fmat, float alpha, float lambda) override {
+                  DMatrix *p_fmat, double alpha, double lambda) override {
     // k-th selected feature for a group
     auto k = counter_[group_idx]++;
     // stop after either reaching top-N or going through all the features in a group
@@ -449,7 +449,7 @@ class ThriftyFeatureSelector : public FeatureSelector {
 
  protected:
   bst_uint top_k_;
-  std::vector<bst_float> deltaw_;
+  std::vector<bst_double> deltaw_;
   std::vector<size_t> sorted_idx_;
   std::vector<bst_uint> counter_;
   std::vector<std::pair<double, double>> gpair_sums_;

@@ -23,7 +23,7 @@ void DumpRegTree(std::stringstream& fo,  // NOLINT(*)
                  const FeatureMap& fmap,
                  int nid, int depth, int add_comma,
                  bool with_stats, std::string format) {
-  int float_max_precision = std::numeric_limits<bst_float>::max_digits10;
+  int double_max_precision = std::numeric_limits<bst_double>::max_digits10;
   if (format == "json") {
     if (add_comma) {
       fo << ",";
@@ -42,21 +42,21 @@ void DumpRegTree(std::stringstream& fo,  // NOLINT(*)
   if (tree[nid].IsLeaf()) {
     if (format == "json") {
       fo << "{ \"nodeid\": " << nid
-         << ", \"leaf\": " << std::setprecision(float_max_precision) << tree[nid].LeafValue();
+         << ", \"leaf\": " << std::setprecision(double_max_precision) << tree[nid].LeafValue();
       if (with_stats) {
-        fo << ", \"cover\": " << std::setprecision(float_max_precision) << tree.Stat(nid).sum_hess;
+        fo << ", \"cover\": " << std::setprecision(double_max_precision) << tree.Stat(nid).sum_hess;
       }
       fo << " }";
     } else {
-      fo << nid << ":leaf=" << std::setprecision(float_max_precision) << tree[nid].LeafValue();
+      fo << nid << ":leaf=" << std::setprecision(double_max_precision) << tree[nid].LeafValue();
       if (with_stats) {
-        fo << ",cover=" << std::setprecision(float_max_precision) << tree.Stat(nid).sum_hess;
+        fo << ",cover=" << std::setprecision(double_max_precision) << tree.Stat(nid).sum_hess;
       }
       fo << '\n';
     }
   } else {
     // right then left,
-    bst_float cond = tree[nid].SplitCond();
+    bst_double cond = tree[nid].SplitCond();
     const unsigned split_index = tree[nid].SplitIndex();
     if (split_index < fmap.Size()) {
       switch (fmap.type(split_index)) {
@@ -76,7 +76,7 @@ void DumpRegTree(std::stringstream& fo,  // NOLINT(*)
           break;
         }
         case FeatureMap::kInteger: {
-          const bst_float floored = std::floor(cond);
+          const bst_double floored = std::floor(cond);
           const int integer_threshold
             = (floored == cond) ? static_cast<int>(floored)
                                 : static_cast<int>(floored) + 1;
@@ -103,13 +103,13 @@ void DumpRegTree(std::stringstream& fo,  // NOLINT(*)
             fo << "{ \"nodeid\": " << nid
                << ", \"depth\": " << depth
                << ", \"split\": \"" << fmap.Name(split_index) << "\""
-               << ", \"split_condition\": " << std::setprecision(float_max_precision) << cond
+               << ", \"split_condition\": " << std::setprecision(double_max_precision) << cond
                << ", \"yes\": " << tree[nid].LeftChild()
                << ", \"no\": " << tree[nid].RightChild()
                << ", \"missing\": " << tree[nid].DefaultChild();
           } else {
             fo << nid << ":[" << fmap.Name(split_index)
-               << "<" << std::setprecision(float_max_precision) << cond
+               << "<" << std::setprecision(double_max_precision) << cond
                << "] yes=" << tree[nid].LeftChild()
                << ",no=" << tree[nid].RightChild()
                << ",missing=" << tree[nid].DefaultChild();
@@ -123,12 +123,12 @@ void DumpRegTree(std::stringstream& fo,  // NOLINT(*)
         fo << "{ \"nodeid\": " << nid
            << ", \"depth\": " << depth
            << ", \"split\": " << split_index
-           << ", \"split_condition\": " << std::setprecision(float_max_precision) << cond
+           << ", \"split_condition\": " << std::setprecision(double_max_precision) << cond
            << ", \"yes\": " << tree[nid].LeftChild()
            << ", \"no\": " << tree[nid].RightChild()
            << ", \"missing\": " << tree[nid].DefaultChild();
       } else {
-        fo << nid << ":[f" << split_index << "<"<< std::setprecision(float_max_precision) << cond
+        fo << nid << ":[f" << split_index << "<"<< std::setprecision(double_max_precision) << cond
            << "] yes=" << tree[nid].LeftChild()
            << ",no=" << tree[nid].RightChild()
            << ",missing=" << tree[nid].DefaultChild();
@@ -136,11 +136,11 @@ void DumpRegTree(std::stringstream& fo,  // NOLINT(*)
     }
     if (with_stats) {
       if (format == "json") {
-        fo << ", \"gain\": " << std::setprecision(float_max_precision) << tree.Stat(nid).loss_chg
-           << ", \"cover\": " << std::setprecision(float_max_precision) << tree.Stat(nid).sum_hess;
+        fo << ", \"gain\": " << std::setprecision(double_max_precision) << tree.Stat(nid).loss_chg
+           << ", \"cover\": " << std::setprecision(double_max_precision) << tree.Stat(nid).sum_hess;
       } else {
-        fo << ",gain=" << std::setprecision(float_max_precision) << tree.Stat(nid).loss_chg
-           << ",cover=" << std::setprecision(float_max_precision) << tree.Stat(nid).sum_hess;
+        fo << ",gain=" << std::setprecision(double_max_precision) << tree.Stat(nid).loss_chg
+           << ",cover=" << std::setprecision(double_max_precision) << tree.Stat(nid).sum_hess;
       }
     }
     if (format == "json") {
@@ -180,8 +180,8 @@ void RegTree::FillNodeMeanValues() {
   }
 }
 
-bst_float RegTree::FillNodeMeanValue(int nid) {
-  bst_float result;
+bst_double RegTree::FillNodeMeanValue(int nid) {
+  bst_double result;
   auto& node = (*this)[nid];
   if (node.IsLeaf()) {
     result = node.LeafValue();
@@ -196,13 +196,13 @@ bst_float RegTree::FillNodeMeanValue(int nid) {
 
 void RegTree::CalculateContributionsApprox(const RegTree::FVec &feat,
                                            unsigned root_id,
-                                           bst_float *out_contribs) const {
+                                           bst_double *out_contribs) const {
   CHECK_GT(this->node_mean_values_.size(), 0U);
   // this follows the idea of http://blog.datadive.net/interpreting-random-forests/
   unsigned split_index = 0;
   auto pid = static_cast<int>(root_id);
   // update bias value
-  bst_float node_value = this->node_mean_values_[pid];
+  bst_double node_value = this->node_mean_values_[pid];
   out_contribs[feat.Size()] += node_value;
   if ((*this)[pid].IsLeaf()) {
     // nothing to do anymore
@@ -211,12 +211,12 @@ void RegTree::CalculateContributionsApprox(const RegTree::FVec &feat,
   while (!(*this)[pid].IsLeaf()) {
     split_index = (*this)[pid].SplitIndex();
     pid = this->GetNext(pid, feat.Fvalue(split_index), feat.IsMissing(split_index));
-    bst_float new_value = this->node_mean_values_[pid];
+    bst_double new_value = this->node_mean_values_[pid];
     // update feature weight
     out_contribs[split_index] += new_value - node_value;
     node_value = new_value;
   }
-  bst_float leaf_value = (*this)[pid].LeafValue();
+  bst_double leaf_value = (*this)[pid].LeafValue();
   // update leaf feature weight
   out_contribs[split_index] += leaf_value - node_value;
 }
@@ -227,17 +227,17 @@ void RegTree::CalculateContributionsApprox(const RegTree::FVec &feat,
 // the pweight of the i'th path element is the permuation weight of paths with i-1 ones in them
 struct PathElement {
   int feature_index;
-  bst_float zero_fraction;
-  bst_float one_fraction;
-  bst_float pweight;
+  bst_double zero_fraction;
+  bst_double one_fraction;
+  bst_double pweight;
   PathElement() = default;
-  PathElement(int i, bst_float z, bst_float o, bst_float w) :
+  PathElement(int i, bst_double z, bst_double o, bst_double w) :
     feature_index(i), zero_fraction(z), one_fraction(o), pweight(w) {}
 };
 
 // extend our decision path with a fraction of one and zero extensions
 void ExtendPath(PathElement *unique_path, unsigned unique_depth,
-                bst_float zero_fraction, bst_float one_fraction,
+                bst_double zero_fraction, bst_double one_fraction,
                 int feature_index) {
   unique_path[unique_depth].feature_index = feature_index;
   unique_path[unique_depth].zero_fraction = zero_fraction;
@@ -245,29 +245,29 @@ void ExtendPath(PathElement *unique_path, unsigned unique_depth,
   unique_path[unique_depth].pweight = (unique_depth == 0 ? 1.0f : 0.0f);
   for (int i = unique_depth - 1; i >= 0; i--) {
     unique_path[i+1].pweight += one_fraction * unique_path[i].pweight * (i + 1)
-                                / static_cast<bst_float>(unique_depth + 1);
+                                / static_cast<bst_double>(unique_depth + 1);
     unique_path[i].pweight = zero_fraction * unique_path[i].pweight * (unique_depth - i)
-                             / static_cast<bst_float>(unique_depth + 1);
+                             / static_cast<bst_double>(unique_depth + 1);
   }
 }
 
 // undo a previous extension of the decision path
 void UnwindPath(PathElement *unique_path, unsigned unique_depth,
                 unsigned path_index) {
-  const bst_float one_fraction = unique_path[path_index].one_fraction;
-  const bst_float zero_fraction = unique_path[path_index].zero_fraction;
-  bst_float next_one_portion = unique_path[unique_depth].pweight;
+  const bst_double one_fraction = unique_path[path_index].one_fraction;
+  const bst_double zero_fraction = unique_path[path_index].zero_fraction;
+  bst_double next_one_portion = unique_path[unique_depth].pweight;
 
   for (int i = unique_depth - 1; i >= 0; --i) {
     if (one_fraction != 0) {
-      const bst_float tmp = unique_path[i].pweight;
+      const bst_double tmp = unique_path[i].pweight;
       unique_path[i].pweight = next_one_portion * (unique_depth + 1)
-                               / static_cast<bst_float>((i + 1) * one_fraction);
+                               / static_cast<bst_double>((i + 1) * one_fraction);
       next_one_portion = tmp - unique_path[i].pweight * zero_fraction * (unique_depth - i)
-                               / static_cast<bst_float>(unique_depth + 1);
+                               / static_cast<bst_double>(unique_depth + 1);
     } else {
       unique_path[i].pweight = (unique_path[i].pweight * (unique_depth + 1))
-                               / static_cast<bst_float>(zero_fraction * (unique_depth - i));
+                               / static_cast<bst_double>(zero_fraction * (unique_depth - i));
     }
   }
 
@@ -280,22 +280,22 @@ void UnwindPath(PathElement *unique_path, unsigned unique_depth,
 
 // determine what the total permuation weight would be if
 // we unwound a previous extension in the decision path
-bst_float UnwoundPathSum(const PathElement *unique_path, unsigned unique_depth,
+bst_double UnwoundPathSum(const PathElement *unique_path, unsigned unique_depth,
                          unsigned path_index) {
-  const bst_float one_fraction = unique_path[path_index].one_fraction;
-  const bst_float zero_fraction = unique_path[path_index].zero_fraction;
-  bst_float next_one_portion = unique_path[unique_depth].pweight;
-  bst_float total = 0;
+  const bst_double one_fraction = unique_path[path_index].one_fraction;
+  const bst_double zero_fraction = unique_path[path_index].zero_fraction;
+  bst_double next_one_portion = unique_path[unique_depth].pweight;
+  bst_double total = 0;
   for (int i = unique_depth - 1; i >= 0; --i) {
     if (one_fraction != 0) {
-      const bst_float tmp = next_one_portion * (unique_depth + 1)
-                            / static_cast<bst_float>((i + 1) * one_fraction);
+      const bst_double tmp = next_one_portion * (unique_depth + 1)
+                            / static_cast<bst_double>((i + 1) * one_fraction);
       total += tmp;
       next_one_portion = unique_path[i].pweight - tmp * zero_fraction * ((unique_depth - i)
-                         / static_cast<bst_float>(unique_depth + 1));
+                         / static_cast<bst_double>(unique_depth + 1));
     } else if (zero_fraction != 0) {
       total += (unique_path[i].pweight / zero_fraction) / ((unique_depth - i)
-               / static_cast<bst_float>(unique_depth + 1));
+               / static_cast<bst_double>(unique_depth + 1));
     } else {
       CHECK_EQ(unique_path[i].pweight, 0)
         << "Unique path " << i << " must have zero weight";
@@ -305,13 +305,13 @@ bst_float UnwoundPathSum(const PathElement *unique_path, unsigned unique_depth,
 }
 
 // recursive computation of SHAP values for a decision tree
-void RegTree::TreeShap(const RegTree::FVec &feat, bst_float *phi,
+void RegTree::TreeShap(const RegTree::FVec &feat, bst_double *phi,
                        unsigned node_index, unsigned unique_depth,
                        PathElement *parent_unique_path,
-                       bst_float parent_zero_fraction,
-                       bst_float parent_one_fraction, int parent_feature_index,
+                       bst_double parent_zero_fraction,
+                       bst_double parent_one_fraction, int parent_feature_index,
                        int condition, unsigned condition_feature,
-                       bst_float condition_fraction) const {
+                       bst_double condition_fraction) const {
   const auto node = (*this)[node_index];
 
   // stop if we have no weight coming down to us
@@ -330,7 +330,7 @@ void RegTree::TreeShap(const RegTree::FVec &feat, bst_float *phi,
   // leaf node
   if (node.IsLeaf()) {
     for (unsigned i = 1; i <= unique_depth; ++i) {
-      const bst_float w = UnwoundPathSum(unique_path, unique_depth, i);
+      const bst_double w = UnwoundPathSum(unique_path, unique_depth, i);
       const PathElement &el = unique_path[i];
       phi[el.feature_index] += w * (el.one_fraction - el.zero_fraction)
                                  * node.LeafValue() * condition_fraction;
@@ -349,11 +349,11 @@ void RegTree::TreeShap(const RegTree::FVec &feat, bst_float *phi,
     }
     const unsigned cold_index = (static_cast<int>(hot_index) == node.LeftChild() ?
                                  node.RightChild() : node.LeftChild());
-    const bst_float w = this->Stat(node_index).sum_hess;
-    const bst_float hot_zero_fraction = this->Stat(hot_index).sum_hess / w;
-    const bst_float cold_zero_fraction = this->Stat(cold_index).sum_hess / w;
-    bst_float incoming_zero_fraction = 1;
-    bst_float incoming_one_fraction = 1;
+    const bst_double w = this->Stat(node_index).sum_hess;
+    const bst_double hot_zero_fraction = this->Stat(hot_index).sum_hess / w;
+    const bst_double cold_zero_fraction = this->Stat(cold_index).sum_hess / w;
+    bst_double incoming_zero_fraction = 1;
+    bst_double incoming_one_fraction = 1;
 
     // see if we have already split on this feature,
     // if so we undo that split so we can redo it for this node
@@ -369,8 +369,8 @@ void RegTree::TreeShap(const RegTree::FVec &feat, bst_float *phi,
     }
 
     // divide up the condition_fraction among the recursive calls
-    bst_float hot_condition_fraction = condition_fraction;
-    bst_float cold_condition_fraction = condition_fraction;
+    bst_double hot_condition_fraction = condition_fraction;
+    bst_double cold_condition_fraction = condition_fraction;
     if (condition > 0 && split_index == condition_feature) {
       cold_condition_fraction = 0;
       unique_depth -= 1;
@@ -391,12 +391,12 @@ void RegTree::TreeShap(const RegTree::FVec &feat, bst_float *phi,
 }
 
 void RegTree::CalculateContributions(const RegTree::FVec &feat,
-                                     unsigned root_id, bst_float *out_contribs,
+                                     unsigned root_id, bst_double *out_contribs,
                                      int condition,
                                      unsigned condition_feature) const {
   // find the expected value of the tree's predictions
   if (condition == 0) {
-    bst_float node_value = this->node_mean_values_[static_cast<int>(root_id)];
+    bst_double node_value = this->node_mean_values_[static_cast<int>(root_id)];
     out_contribs[feat.Size()] += node_value;
   }
 

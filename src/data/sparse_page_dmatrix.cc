@@ -76,7 +76,7 @@ BatchSet SparsePageDMatrix::GetColumnBatches() {
   return BatchSet(begin_iter);
 }
 
-float SparsePageDMatrix::GetColDensity(size_t cidx) {
+double SparsePageDMatrix::GetColDensity(size_t cidx) {
   // Finds densities if we don't already have them
   if (col_density_.empty()) {
     std::vector<size_t> column_size(this->Info().num_col_);
@@ -89,7 +89,7 @@ float SparsePageDMatrix::GetColDensity(size_t cidx) {
     for (auto i = 0u; i < col_density_.size(); i++) {
       size_t nmiss = this->Info().num_row_ - column_size[i];
       col_density_[i] =
-          1.0f - (static_cast<float>(nmiss)) / this->Info().num_row_;
+          1.0f - (static_cast<double>(nmiss)) / this->Info().num_row_;
     }
   }
   return col_density_.at(cidx);

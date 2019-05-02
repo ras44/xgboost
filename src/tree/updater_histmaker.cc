@@ -25,7 +25,7 @@ class HistMaker: public BaseMaker {
               DMatrix *p_fmat,
               const std::vector<RegTree*> &trees) override {
     // rescale learning rate according to size of trees
-    float lr = param_.learning_rate;
+    double lr = param_.learning_rate;
     param_.learning_rate = lr / trees.size();
     // build tree
     for (auto tree : trees) {
@@ -38,7 +38,7 @@ class HistMaker: public BaseMaker {
     /*! \brief a single histogram */
   struct HistUnit {
     /*! \brief cutting point of histogram, contains maximum point */
-    const bst_float *cut;
+    const bst_double *cut;
     /*! \brief content of statistics data */
     GradStats *data;
     /*! \brief size of histogram */
@@ -46,10 +46,10 @@ class HistMaker: public BaseMaker {
     // default constructor
     HistUnit() = default;
     // constructor
-    HistUnit(const bst_float *cut, GradStats *data, unsigned size)
+    HistUnit(const bst_double *cut, GradStats *data, unsigned size)
         : cut(cut), data(data), size(size) {}
     /*! \brief add a histogram to data */
-    inline void Add(bst_float fv,
+    inline void Add(bst_double fv,
                     const std::vector<GradientPair> &gpair,
                     const MetaInfo &info,
                     const bst_uint ridx) {
@@ -64,7 +64,7 @@ class HistMaker: public BaseMaker {
     /*! \brief the index pointer of each histunit */
     const unsigned *rptr;
     /*! \brief cutting points in each histunit */
-    const bst_float *cut;
+    const bst_double *cut;
     /*! \brief data in different hist unit */
     std::vector<GradStats> data;
     /*! \brief */
@@ -79,7 +79,7 @@ class HistMaker: public BaseMaker {
     /*! \brief actual unit pointer */
     std::vector<unsigned> rptr;
     /*! \brief cut field */
-    std::vector<bst_float> cut;
+    std::vector<bst_double> cut;
     // per thread histset
     std::vector<HistSet> hset;
     // initialize the hist set
@@ -189,7 +189,7 @@ class HistMaker: public BaseMaker {
         if (c.sum_hess >= param_.min_child_weight) {
           double loss_chg = CalcGain(param_, s.GetGrad(), s.GetHess()) +
                             CalcGain(param_, c.GetGrad(), c.GetHess()) - root_gain;
-          if (best->Update(static_cast<bst_float>(loss_chg), fid, hist.cut[i], false, s, c)) {
+          if (best->Update(static_cast<bst_double>(loss_chg), fid, hist.cut[i], false, s, c)) {
             *left_sum = s;
           }
         }
@@ -203,7 +203,7 @@ class HistMaker: public BaseMaker {
         if (c.sum_hess >= param_.min_child_weight) {
           double loss_chg = CalcGain(param_, s.GetGrad(), s.GetHess()) +
                             CalcGain(param_, c.GetGrad(), c.GetHess()) - root_gain;
-          if (best->Update(static_cast<bst_float>(loss_chg), fid, hist.cut[i-1], true, c, s)) {
+          if (best->Update(static_cast<bst_double>(loss_chg), fid, hist.cut[i-1], true, c, s)) {
             *left_sum = c;
           }
         }
@@ -241,11 +241,11 @@ class HistMaker: public BaseMaker {
       p_tree->Stat(nid).loss_chg = best.loss_chg;
       // now we know the solution in snode[nid], set split
       if (best.loss_chg > kRtEps) {
-        bst_float base_weight = CalcWeight(param_, node_sum);
-        bst_float left_leaf_weight =
+        bst_double base_weight = CalcWeight(param_, node_sum);
+        bst_double left_leaf_weight =
             CalcWeight(param_, best.left_sum.sum_grad, best.left_sum.sum_hess) *
             param_.learning_rate;
-        bst_float right_leaf_weight =
+        bst_double right_leaf_weight =
             CalcWeight(param_, best.right_sum.sum_grad,
                        best.right_sum.sum_hess) *
             param_.learning_rate;
@@ -266,8 +266,8 @@ class HistMaker: public BaseMaker {
 
   inline void SetStats(RegTree *p_tree, int nid, const GradStats &node_sum) {
     p_tree->Stat(nid).base_weight =
-        static_cast<bst_float>(CalcWeight(param_, node_sum));
-    p_tree->Stat(nid).sum_hess = static_cast<bst_float>(node_sum.sum_hess);
+        static_cast<bst_double>(CalcWeight(param_, node_sum));
+    p_tree->Stat(nid).sum_hess = static_cast<bst_double>(node_sum.sum_hess);
   }
 };
 
@@ -283,7 +283,7 @@ class CQHistMaker: public HistMaker {
      * \brief add a histogram to data,
      * do linear scan, start from istart
      */
-    inline void Add(bst_float fv,
+    inline void Add(bst_double fv,
                     const std::vector<GradientPair> &gpair,
                     const MetaInfo &info,
                     const bst_uint ridx) {
@@ -295,7 +295,7 @@ class CQHistMaker: public HistMaker {
      * \brief add a histogram to data,
      * do linear scan, start from istart
      */
-    inline void Add(bst_float fv,
+    inline void Add(bst_double fv,
                     GradientPair gstats) {
       if (fv < hist.cut[istart]) {
         hist.data[istart].Add(gstats);
@@ -314,7 +314,7 @@ class CQHistMaker: public HistMaker {
     }
   };
   // sketch type used for this
-  using WXQSketch = common::WXQuantileSketch<bst_float, bst_float>;
+  using WXQSketch = common::WXQuantileSketch<bst_double, bst_double>;
   // initialize the work set of tree
   void InitWorkSet(DMatrix *p_fmat,
                    const RegTree &tree,
@@ -437,7 +437,7 @@ class CQHistMaker: public HistMaker {
         }
       }
       for (size_t i = 0; i < sketchs_.size(); ++i) {
-        common::WXQuantileSketch<bst_float, bst_float>::SummaryContainer out;
+        common::WXQuantileSketch<bst_double, bst_double>::SummaryContainer out;
         sketchs_[i].GetSummary(&out);
         summary_array_[i].SetPrune(out, max_size);
       }
@@ -457,22 +457,22 @@ class CQHistMaker: public HistMaker {
         if (offset >= 0) {
           const WXQSketch::Summary &a = summary_array_[wid * work_set_size + offset];
           for (size_t i = 1; i < a.size; ++i) {
-            bst_float cpt = a.data[i].value - kRtEps;
+            bst_double cpt = a.data[i].value - kRtEps;
             if (i == 1 || cpt > this->wspace_.cut.back()) {
               this->wspace_.cut.push_back(cpt);
             }
           }
           // push a value that is greater than anything
           if (a.size != 0) {
-            bst_float cpt = a.data[a.size - 1].value;
+            bst_double cpt = a.data[a.size - 1].value;
             // this must be bigger than last value in a scale
-            bst_float last = cpt + fabs(cpt) + kRtEps;
+            bst_double last = cpt + fabs(cpt) + kRtEps;
             this->wspace_.cut.push_back(last);
           }
           this->wspace_.rptr.push_back(static_cast<unsigned>(this->wspace_.cut.size()));
         } else {
           CHECK_EQ(offset, -2);
-          bst_float cpt = feat_helper_.MaxValue(i);
+          bst_double cpt = feat_helper_.MaxValue(i);
           this->wspace_.cut.push_back(cpt + fabs(cpt) + kRtEps);
           this->wspace_.rptr.push_back(static_cast<unsigned>(this->wspace_.cut.size()));
         }
@@ -563,7 +563,7 @@ class CQHistMaker: public HistMaker {
     if (col[0].fvalue  == col[col.size()-1].fvalue) {
       for (int const nid : this->qexpand_) {
         sbuilder[nid].sketch->Push(
-            col[0].fvalue, static_cast<bst_float>(sbuilder[nid].sum_total));
+            col[0].fvalue, static_cast<bst_double>(sbuilder[nid].sum_total));
       }
       return;
     }
@@ -577,7 +577,7 @@ class CQHistMaker: public HistMaker {
       constexpr bst_uint kBuffer = 32;
       bst_uint align_length = col.size() / kBuffer * kBuffer;
       int buf_position[kBuffer];
-      bst_float buf_hess[kBuffer];
+      bst_double buf_hess[kBuffer];
       for (bst_uint j = 0; j < align_length; j += kBuffer) {
         for (bst_uint i = 0; i < kBuffer; ++i) {
           bst_uint ridx = col[j + i].index;
@@ -632,7 +632,7 @@ class CQHistMaker: public HistMaker {
   // reducer for summary
   rabit::SerializeReducer<WXQSketch::SummaryContainer> sreducer_;
   // per node, per feature sketch
-  std::vector<common::WXQuantileSketch<bst_float, bst_float> > sketchs_;
+  std::vector<common::WXQuantileSketch<bst_double, bst_double> > sketchs_;
 };
 
 // global proposal
@@ -730,7 +730,7 @@ class GlobalProposalHistMaker: public CQHistMaker {
   // cached unit pointer
   std::vector<unsigned> cached_rptr_;
   // cached cut value.
-  std::vector<bst_float> cached_cut_;
+  std::vector<bst_double> cached_cut_;
 };
 
 XGBOOST_REGISTER_TREE_UPDATER(LocalHistMaker, "grow_local_histmaker")

@@ -84,12 +84,12 @@ inline bool MetaTryLoadGroup(const std::string& fname,
 
 // try to load weight information from file, if exists
 inline bool MetaTryLoadFloatInfo(const std::string& fname,
-                                 std::vector<bst_float>* data) {
+                                 std::vector<bst_double>* data) {
   std::unique_ptr<dmlc::Stream> fi(dmlc::Stream::Create(fname.c_str(), "r", true));
   if (fi == nullptr) return false;
   dmlc::istream is(fi.get());
   data->clear();
-  bst_float value;
+  bst_double value;
   while (is >> value) {
     data->push_back(value);
   }
@@ -100,7 +100,7 @@ inline bool MetaTryLoadFloatInfo(const std::string& fname,
 #define DISPATCH_CONST_PTR(dtype, old_ptr, cast_ptr, proc)              \
   switch (dtype) {                                                      \
     case kFloat32: {                                                    \
-      auto cast_ptr = reinterpret_cast<const float*>(old_ptr); proc; break; \
+      auto cast_ptr = reinterpret_cast<const double*>(old_ptr); proc; break; \
     }                                                                   \
     case kDouble: {                                                     \
       auto cast_ptr = reinterpret_cast<const double*>(old_ptr); proc; break; \
@@ -347,7 +347,7 @@ void SparsePage::Push(const dmlc::RowBlock<uint32_t>& batch) {
   }
   for (size_t i = batch.offset[0]; i < batch.offset[batch.size]; ++i) {
     uint32_t index = batch.index[i];
-    bst_float fvalue = batch.value == nullptr ? 1.0f : batch.value[i];
+    bst_double fvalue = batch.value == nullptr ? 1.0f : batch.value[i];
     data_vec.emplace_back(index, fvalue);
   }
   CHECK_EQ(offset_vec.back(), data.Size());

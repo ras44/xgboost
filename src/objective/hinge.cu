@@ -42,7 +42,7 @@ class HingeObj : public ObjFunction {
     label_correct_.Resize(devices_.IsEmpty() ? 1 : devices_.Size());
   }
 
-  void GetGradient(const HostDeviceVector<bst_float> &preds,
+  void GetGradient(const HostDeviceVector<bst_double> &preds,
                    const MetaInfo &info,
                    int iter,
                    HostDeviceVector<GradientPair> *out_gpair) override {
@@ -59,19 +59,19 @@ class HingeObj : public ObjFunction {
         [=] XGBOOST_DEVICE(size_t _idx,
                            common::Span<int> _label_correct,
                            common::Span<GradientPair> _out_gpair,
-                           common::Span<const bst_float> _preds,
-                           common::Span<const bst_float> _labels,
-                           common::Span<const bst_float> _weights) {
-          bst_float p = _preds[_idx];
-          bst_float w = is_null_weight ? 1.0f : _weights[_idx];
-          bst_float y = _labels[_idx] * 2.0 - 1.0;
-          bst_float g, h;
+                           common::Span<const bst_double> _preds,
+                           common::Span<const bst_double> _labels,
+                           common::Span<const bst_double> _weights) {
+          bst_double p = _preds[_idx];
+          bst_double w = is_null_weight ? 1.0f : _weights[_idx];
+          bst_double y = _labels[_idx] * 2.0 - 1.0;
+          bst_double g, h;
           if (p * y < 1.0) {
             g = -y * w;
             h = w;
           } else {
             g = 0.0;
-            h = std::numeric_limits<bst_float>::min();
+            h = std::numeric_limits<bst_double>::min();
           }
           _out_gpair[_idx] = GradientPair(g, h);
         },
@@ -79,9 +79,9 @@ class HingeObj : public ObjFunction {
             &label_correct_, out_gpair, &preds, &info.labels_, &info.weights_);
   }
 
-  void PredTransform(HostDeviceVector<bst_float> *io_preds) override {
+  void PredTransform(HostDeviceVector<bst_double> *io_preds) override {
     common::Transform<>::Init(
-        [] XGBOOST_DEVICE(size_t _idx, common::Span<bst_float> _preds) {
+        [] XGBOOST_DEVICE(size_t _idx, common::Span<bst_double> _preds) {
           _preds[_idx] = _preds[_idx] > 0.0 ? 1.0 : 0.0;
         },
         common::Range{0, static_cast<int64_t>(io_preds->Size()), 1}, devices_)

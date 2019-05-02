@@ -30,7 +30,7 @@ class SimpleDMatrix : public DMatrix {
 
   const MetaInfo& Info() const override;
 
-  float GetColDensity(size_t cidx) override;
+  double GetColDensity(size_t cidx) override;
 
   bool SingleColBlock() const override;
 

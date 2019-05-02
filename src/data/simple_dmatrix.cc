@@ -14,7 +14,7 @@ MetaInfo& SimpleDMatrix::Info() { return source_->info; }
 
 const MetaInfo& SimpleDMatrix::Info() const { return source_->info; }
 
-float SimpleDMatrix::GetColDensity(size_t cidx) {
+double SimpleDMatrix::GetColDensity(size_t cidx) {
   size_t column_size = 0;
   // Use whatever version of column batches already exists
   if (sorted_column_page_) {
@@ -26,7 +26,7 @@ float SimpleDMatrix::GetColDensity(size_t cidx) {
   }
 
   size_t nmiss = this->Info().num_row_ - column_size;
-  return 1.0f - (static_cast<float>(nmiss)) / this->Info().num_row_;
+  return 1.0f - (static_cast<double>(nmiss)) / this->Info().num_row_;
 }
 
 class SimpleBatchIteratorImpl : public BatchIteratorImpl {

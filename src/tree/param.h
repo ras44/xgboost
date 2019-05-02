@@ -22,9 +22,9 @@ namespace tree {
 /*! \brief training parameters for regression tree */
 struct TrainParam : public dmlc::Parameter<TrainParam> {
   // learning step size for a time
-  float learning_rate;
+  double learning_rate;
   // minimum loss change required for a split
-  float min_split_loss;
+  double min_split_loss;
   // maximum depth of a tree
   int max_depth;
   // maximum number of leaves
@@ -37,31 +37,31 @@ struct TrainParam : public dmlc::Parameter<TrainParam> {
 
   //----- the rest parameters are less important ----
   // minimum amount of hessian(weight) allowed in a child
-  float min_child_weight;
+  double min_child_weight;
   // L2 regularization factor
-  float reg_lambda;
+  double reg_lambda;
   // L1 regularization factor
-  float reg_alpha;
+  double reg_alpha;
   // default direction choice
   int default_direction;
   // maximum delta update we can add in weight estimation
   // this parameter can be used to stabilize update
   // default=0 means no constraint on weight delta
-  float max_delta_step;
+  double max_delta_step;
   // whether we want to do subsample
-  float subsample;
+  double subsample;
   // whether to subsample columns in each split (node)
-  float colsample_bynode;
+  double colsample_bynode;
   // whether to subsample columns in each level
-  float colsample_bylevel;
+  double colsample_bylevel;
   // whether to subsample columns during tree construction
-  float colsample_bytree;
+  double colsample_bytree;
   // speed optimization for dense column
-  float opt_dense_col;
+  double opt_dense_col;
   // accuracy of sketch
-  float sketch_eps;
+  double sketch_eps;
   // accuracy of sketch
-  float sketch_ratio;
+  double sketch_ratio;
   // leaf vector size
   int size_leaf_vector;
   // option for parallelization
@@ -227,13 +227,13 @@ struct TrainParam : public dmlc::Parameter<TrainParam> {
     DMLC_DECLARE_ALIAS(learning_rate, eta);
   }
   /*! \brief whether need forward small to big search: default right */
-  inline bool NeedForwardSearch(float col_density, bool indicator) const {
+  inline bool NeedForwardSearch(double col_density, bool indicator) const {
     return this->default_direction == 2 ||
            (default_direction == 0 && (col_density < opt_dense_col) &&
             !indicator);
   }
   /*! \brief whether need backward big to small search: default left */
-  inline bool NeedBackwardSearch(float col_density, bool indicator) const {
+  inline bool NeedBackwardSearch(double col_density, bool indicator) const {
     return this->default_direction != 2;
   }
   /*! \brief given the loss change, whether we need to invoke pruning */
@@ -345,7 +345,7 @@ XGBOOST_DEVICE inline T CalcWeight(const TrainingParams &p, T sum_grad,
 
 // Used in gpu code where GradientPair is used for gradient sum, not GradStats.
 template <typename TrainingParams, typename GpairT>
-XGBOOST_DEVICE inline float CalcWeight(const TrainingParams &p, GpairT sum_grad) {
+XGBOOST_DEVICE inline double CalcWeight(const TrainingParams &p, GpairT sum_grad) {
   return CalcWeight(p, sum_grad.GetGrad(), sum_grad.GetHess());
 }
 
@@ -474,10 +474,10 @@ struct ValueConstraint {
  */
 struct SplitEntry {
   /*! \brief loss change after split this node */
-  bst_float loss_chg{0.0f};
+  bst_double loss_chg{0.0f};
   /*! \brief split index */
   unsigned sindex{0};
-  bst_float split_value{0.0f};
+  bst_double split_value{0.0f};
   GradStats left_sum;
   GradStats right_sum;
 
@@ -493,7 +493,7 @@ struct SplitEntry {
    * \param new_loss_chg the loss reduction get through the split
    * \param split_index the feature index where the split is on
    */
-  inline bool NeedReplace(bst_float new_loss_chg, unsigned split_index) const {
+  inline bool NeedReplace(bst_double new_loss_chg, unsigned split_index) const {
     if (this->SplitIndex() <= split_index) {
       return new_loss_chg > this->loss_chg;
     } else {
@@ -525,8 +525,8 @@ struct SplitEntry {
    * \param default_left whether the missing value goes to left
    * \return whether the proposed split is better and can replace current split
    */
-  inline bool Update(bst_float new_loss_chg, unsigned split_index,
-                     bst_float new_split_value, bool default_left,
+  inline bool Update(bst_double new_loss_chg, unsigned split_index,
+                     bst_double new_split_value, bool default_left,
                      const GradStats &left_sum, const GradStats &right_sum) {
     if (this->NeedReplace(new_loss_chg, split_index)) {
       this->loss_chg = new_loss_chg;

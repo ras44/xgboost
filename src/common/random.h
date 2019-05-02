@@ -87,13 +87,13 @@ GlobalRandomEngine& GlobalRandom(); // NOLINT(*)
 class ColumnSampler {
   std::shared_ptr<HostDeviceVector<int>> feature_set_tree_;
   std::map<int, std::shared_ptr<HostDeviceVector<int>>> feature_set_level_;
-  float colsample_bylevel_{1.0f};
-  float colsample_bytree_{1.0f};
-  float colsample_bynode_{1.0f};
+  double colsample_bylevel_{1.0f};
+  double colsample_bytree_{1.0f};
+  double colsample_bynode_{1.0f};
   GlobalRandomEngine rng_;
 
   std::shared_ptr<HostDeviceVector<int>> ColSample(
-      std::shared_ptr<HostDeviceVector<int>> p_features, float colsample) {
+      std::shared_ptr<HostDeviceVector<int>> p_features, double colsample) {
     if (colsample == 1.0f) return p_features;
     const auto& features = p_features->HostVector();
     CHECK_GT(features.size(), 0);
@@ -140,8 +140,8 @@ class ColumnSampler {
    * \param colsample_bytree
    * \param skip_index_0      (Optional) True to skip index 0.
    */
-  void Init(int64_t num_col, float colsample_bynode, float colsample_bylevel,
-            float colsample_bytree, bool skip_index_0 = false) {
+  void Init(int64_t num_col, double colsample_bynode, double colsample_bylevel,
+            double colsample_bytree, bool skip_index_0 = false) {
     colsample_bylevel_ = colsample_bylevel;
     colsample_bytree_ = colsample_bytree;
     colsample_bynode_ = colsample_bynode;

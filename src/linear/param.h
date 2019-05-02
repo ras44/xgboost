@@ -22,11 +22,11 @@ enum FeatureSelectorEnum {
 
 struct LinearTrainParam : public dmlc::Parameter<LinearTrainParam> {
   /*! \brief learning_rate */
-  float learning_rate;
+  double learning_rate;
   /*! \brief regularization weight for L2 norm */
-  float reg_lambda;
+  double reg_lambda;
   /*! \brief regularization weight for L1 norm */
-  float reg_alpha;
+  double reg_alpha;
   int feature_selector;
   int n_gpus;
   int gpu_id;
@@ -67,8 +67,8 @@ struct LinearTrainParam : public dmlc::Parameter<LinearTrainParam> {
     reg_alpha_denorm = reg_alpha * sum_instance_weight;
   }
   // denormalizated regularization penalties
-  float reg_lambda_denorm;
-  float reg_alpha_denorm;
+  double reg_lambda_denorm;
+  double reg_alpha_denorm;
 };
 
 }  // namespace linear

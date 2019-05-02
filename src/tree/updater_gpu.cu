@@ -17,16 +17,16 @@ namespace tree {
 DMLC_REGISTRY_FILE_TAG(updater_gpu);
 
 template <typename GradientPairT>
-XGBOOST_DEVICE float inline LossChangeMissing(const GradientPairT& scan,
+XGBOOST_DEVICE double inline LossChangeMissing(const GradientPairT& scan,
                                               const GradientPairT& missing,
                                               const GradientPairT& parent_sum,
-                                              const float& parent_gain,
+                                              const double& parent_gain,
                                               const GPUTrainingParam& param,
                                               bool& missing_left_out) {  // NOLINT
   // Put gradients of missing values to left
-  float missing_left_loss =
+  double missing_left_loss =
       DeviceCalcLossChange(param, scan + missing, parent_sum, parent_gain);
-  float missing_right_loss =
+  double missing_right_loss =
       DeviceCalcLossChange(param, scan, parent_sum, parent_gain);
 
   if (missing_left_loss >= missing_right_loss) {
@@ -267,7 +267,7 @@ void ReduceScanByKey(common::Span<GradientPair> sums,
  */
 struct ExactSplitCandidate {
   /** the optimal gain score for this node */
-  float score;
+  double score;
   /** index where to split in the DMatrix */
   int index;
 
@@ -278,7 +278,7 @@ struct ExactSplitCandidate {
    * @param minSplitLoss minimum score above which decision to split is made
    * @return true if splittable, else false
    */
-  HOST_DEV_INLINE bool IsSplittable(float minSplitLoss) const {
+  HOST_DEV_INLINE bool IsSplittable(double minSplitLoss) const {
     return ((score >= minSplitLoss) && (index != INT_MAX));
   }
 };
@@ -331,7 +331,7 @@ DEV_INLINE void ArgMaxWithAtomics(
     common::Span<ExactSplitCandidate> nodeSplits,
     common::Span<const GradientPair> gradScans,
     common::Span<const GradientPair> gradSums,
-    common::Span<const float> vals,
+    common::Span<const double> vals,
     common::Span<const int> colIds,
     common::Span<const NodeIdT> nodeAssigns,
     common::Span<const DeviceNodeStats> nodes, int nUniqKeys,
@@ -349,7 +349,7 @@ DEV_INLINE void ArgMaxWithAtomics(
       int uid = nodeId - nodeStart;
       DeviceNodeStats node_stat = nodes[nodeId];
       GradientPair parentSum = node_stat.sum_gradients;
-      float parentGain = node_stat.root_gain;
+      double parentGain = node_stat.root_gain;
       bool tmp;
       ExactSplitCandidate s;
       GradientPair missing = parentSum - colSum;
@@ -365,7 +365,7 @@ __global__ void AtomicArgMaxByKeyGmem(
     common::Span<ExactSplitCandidate> nodeSplits,
     common::Span<const GradientPair> gradScans,
     common::Span<const GradientPair> gradSums,
-    common::Span<const float> vals,
+    common::Span<const double> vals,
     common::Span<const int> colIds,
     common::Span<const NodeIdT> nodeAssigns,
     common::Span<const DeviceNodeStats> nodes,
@@ -386,7 +386,7 @@ __global__ void AtomicArgMaxByKeySmem(
     common::Span<ExactSplitCandidate> nodeSplits,
     common::Span<const GradientPair> gradScans,
     common::Span<const GradientPair> gradSums,
-    common::Span<const float> vals,
+    common::Span<const double> vals,
     common::Span<const int> colIds,
     common::Span<const NodeIdT> nodeAssigns,
     common::Span<const DeviceNodeStats> nodes,
@@ -437,7 +437,7 @@ template <int BLKDIM = 256, int ITEMS_PER_THREAD = 4>
 void ArgMaxByKey(common::Span<ExactSplitCandidate> nodeSplits,
                  common::Span<const GradientPair> gradScans,
                  common::Span<const GradientPair> gradSums,
-                 common::Span<const float> vals,
+                 common::Span<const double> vals,
                  common::Span<const int> colIds,
                  common::Span<const NodeIdT> nodeAssigns,
                  common::Span<const DeviceNodeStats> nodes,
@@ -500,7 +500,7 @@ __global__ void FillDefaultNodeIds(NodeIdT* nodeIdsPerInst,
 __global__ void AssignNodeIds(NodeIdT* nodeIdsPerInst, int* nodeLocations,
                               const NodeIdT* nodeIds, const int* instId,
                               const DeviceNodeStats* nodes,
-                              const int* colOffsets, const float* vals,
+                              const int* colOffsets, const double* vals,
                               int nVals, int nCols) {
   int id = threadIdx.x + (blockIdx.x * blockDim.x);
   const int stride = blockDim.x * gridDim.x;
@@ -545,8 +545,8 @@ class GPUMaker : public TreeUpdater {
   /** whether we have initialized memory already (so as not to repeat!) */
   bool allocated_;
   /** feature values stored in column-major compressed format */
-  dh::DoubleBuffer<float> vals_;
-  common::Span<float> vals_cached_;
+  dh::DoubleBuffer<double> vals_;
+  common::Span<double> vals_cached_;
   /** corresponding instance id's of these featutre values */
   dh::DoubleBuffer<int> instIds_;
   common::Span<int> inst_ids_cached_;
@@ -591,7 +591,7 @@ class GPUMaker : public TreeUpdater {
   void Update(HostDeviceVector<GradientPair>* gpair, DMatrix* dmat,
               const std::vector<RegTree*>& trees) override {
     // rescale learning rate according to size of trees
-    float lr = param_.learning_rate;
+    double lr = param_.learning_rate;
     param_.learning_rate = lr / trees.size();
 
     gpair->Shard(devices_);
@@ -638,7 +638,7 @@ class GPUMaker : public TreeUpdater {
     auto d_vals = vals_.Current();
     auto d_nodeSplits = nodeSplits_.data();
     int nUniqKeys = nNodes;
-    float min_split_loss = param_.min_split_loss;
+    double min_split_loss = param_.min_split_loss;
     auto gpu_param = GPUTrainingParam(param_);
 
     dh::LaunchN(param_.gpu_id, nNodes, [=] __device__(int uid) {
@@ -652,7 +652,7 @@ class GPUMaker : public TreeUpdater {
         const DeviceNodeStats& n = d_nodes[absNodeId];
         GradientPair gradScan = d_gradScans[idx];
         GradientPair gradSum = d_gradsums[nodeInstId];
-        float thresh = d_vals[idx];
+        double thresh = d_vals[idx];
         int colId = d_colIds[idx];
         // get the default direction for the current node
         GradientPair missing = n.sum_gradients - gradSum;
@@ -705,7 +705,7 @@ class GPUMaker : public TreeUpdater {
     if (!dmat->SingleColBlock()) {
       LOG(FATAL) << "exact::GPUBuilder - must have 1 column block";
     }
-    std::vector<float> fval;
+    std::vector<double> fval;
     std::vector<int> fId;
     std::vector<int> offset;
     ConvertToCsc(dmat, &fval, &fId, &offset);
@@ -714,7 +714,7 @@ class GPUMaker : public TreeUpdater {
     allocated_ = true;
   }
 
-  void ConvertToCsc(DMatrix* dmat, std::vector<float>* fval,
+  void ConvertToCsc(DMatrix* dmat, std::vector<double>* fval,
                     std::vector<int>* fId, std::vector<int>* offset) {
     const MetaInfo& info = dmat->Info();
     CHECK(info.num_col_ < std::numeric_limits<int>::max());
@@ -742,13 +742,13 @@ class GPUMaker : public TreeUpdater {
     n_vals_ = static_cast<int>(fval->size());
   }
 
-  void TransferAndSortData(const std::vector<float>& fval,
+  void TransferAndSortData(const std::vector<double>& fval,
                            const std::vector<int>& fId,
                            const std::vector<int>& offset) {
     dh::CopyVectorToDeviceSpan(vals_.CurrentSpan(), fval);
     dh::CopyVectorToDeviceSpan(instIds_.CurrentSpan(), fId);
     dh::CopyVectorToDeviceSpan(colOffsets_, offset);
-    dh::SegmentedSort<float, int>(&tmp_mem_, &vals_, &instIds_, n_vals_, n_cols_,
+    dh::SegmentedSort<double, int>(&tmp_mem_, &vals_, &instIds_, n_vals_, n_cols_,
                                   colOffsets_);
     dh::CopyDeviceSpan(vals_cached_, vals_.CurrentSpan());
     dh::CopyDeviceSpan(inst_ids_cached_, instIds_.CurrentSpan());
@@ -811,7 +811,7 @@ class GPUMaker : public TreeUpdater {
     // but we don't need more than level+1 bits for sorting!
     SegmentedSort(&tmp_mem_, &nodeAssigns_, &nodeLocations_, n_vals_, n_cols_,
                   colOffsets_, 0, level + 1);
-    dh::Gather<float, int>(param_.gpu_id, vals_.other(),
+    dh::Gather<double, int>(param_.gpu_id, vals_.other(),
                            vals_.Current(), instIds_.other(), instIds_.Current(),
                            nodeLocations_.Current(), n_vals_);
     vals_.buff.selector ^= 1;

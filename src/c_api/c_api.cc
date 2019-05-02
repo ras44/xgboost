@@ -220,8 +220,8 @@ struct XGBAPIThreadLocalEntry {
   std::vector<std::string> ret_vec_str;
   /*! \brief result holder for returning string pointers */
   std::vector<const char *> ret_vec_charp;
-  /*! \brief returning float vector. */
-  std::vector<bst_float> ret_vec_float;
+  /*! \brief returning double vector. */
+  std::vector<bst_double> ret_vec_double;
   /*! \brief temp variable of gradient pairs. */
   std::vector<GradientPair> tmp_gpair;
 };
@@ -268,7 +268,7 @@ int XGDMatrixCreateFromDataIter(
 
 XGB_DLL int XGDMatrixCreateFromCSREx(const size_t* indptr,
                                      const unsigned* indices,
-                                     const bst_float* data,
+                                     const bst_double* data,
                                      size_t nindptr,
                                      size_t nelem,
                                      size_t num_col,
@@ -309,7 +309,7 @@ XGB_DLL int XGDMatrixCreateFromCSREx(const size_t* indptr,
 
 XGB_DLL int XGDMatrixCreateFromCSCEx(const size_t* col_ptr,
                                      const unsigned* indices,
-                                     const bst_float* data,
+                                     const bst_double* data,
                                      size_t nindptr,
                                      size_t nelem,
                                      size_t num_row,
@@ -363,10 +363,10 @@ XGB_DLL int XGDMatrixCreateFromCSCEx(const size_t* col_ptr,
   API_END();
 }
 
-XGB_DLL int XGDMatrixCreateFromMat(const bst_float* data,
+XGB_DLL int XGDMatrixCreateFromMat(const bst_double* data,
                                    xgboost::bst_ulong nrow,
                                    xgboost::bst_ulong ncol,
-                                   bst_float missing,
+                                   bst_double missing,
                                    DMatrixHandle* out) {
   std::unique_ptr<data::SimpleCSRSource> source(new data::SimpleCSRSource());
 
@@ -378,7 +378,7 @@ XGB_DLL int XGDMatrixCreateFromMat(const bst_float* data,
   bool nan_missing = common::CheckNAN(missing);
   mat.info.num_row_ = nrow;
   mat.info.num_col_ = ncol;
-  const bst_float* data0 = data;
+  const bst_double* data0 = data;
 
   // count elements for sizing data
   data = data0;
@@ -448,10 +448,10 @@ void PrefixSum(size_t *x, size_t N) {
   delete[] suma;
 }
 
-XGB_DLL int XGDMatrixCreateFromMat_omp(const bst_float* data,  // NOLINT
+XGB_DLL int XGDMatrixCreateFromMat_omp(const bst_double* data,  // NOLINT
                                        xgboost::bst_ulong nrow,
                                        xgboost::bst_ulong ncol,
-                                       bst_float missing, DMatrixHandle* out,
+                                       bst_double missing, DMatrixHandle* out,
                                        int nthread) {
   // avoid openmp unless enough data to be worth it to avoid overhead costs
   if (nrow*ncol <= 10000*50) {
@@ -563,36 +563,36 @@ DTType DTGetType(std::string type_string) {
   }
 }
 
-float DTGetValue(void* column, DTType dt_type, size_t ridx) {
-  float missing = std::numeric_limits<float>::quiet_NaN();
+double DTGetValue(void* column, DTType dt_type, size_t ridx) {
+  double missing = std::numeric_limits<double>::quiet_NaN();
   switch (dt_type) {
     case DTType::kFloat32: {
-      float val = reinterpret_cast<float*>(column)[ridx];
+      double val = reinterpret_cast<double*>(column)[ridx];
       return std::isfinite(val) ? val : missing;
     }
     case DTType::kFloat64: {
       double val = reinterpret_cast<double*>(column)[ridx];
-      return std::isfinite(val) ? static_cast<float>(val) : missing;
+      return std::isfinite(val) ? static_cast<double>(val) : missing;
     }
     case DTType::kBool8: {
       bool val = reinterpret_cast<bool*>(column)[ridx];
-      return static_cast<float>(val);
+      return static_cast<double>(val);
     }
     case DTType::kInt32: {
       int32_t val = reinterpret_cast<int32_t*>(column)[ridx];
-      return val != (-2147483647 - 1) ? static_cast<float>(val) : missing;
+      return val != (-2147483647 - 1) ? static_cast<double>(val) : missing;
     }
     case DTType::kInt8: {
       int8_t val = reinterpret_cast<int8_t*>(column)[ridx];
-      return val != -128 ? static_cast<float>(val) : missing;
+      return val != -128 ? static_cast<double>(val) : missing;
     }
     case DTType::kInt16: {
       int16_t val = reinterpret_cast<int16_t*>(column)[ridx];
-      return val != -32768 ? static_cast<float>(val) : missing;
+      return val != -32768 ? static_cast<double>(val) : missing;
     }
     case DTType::kInt64: {
       int64_t val = reinterpret_cast<int64_t*>(column)[ridx];
-      return val != -9223372036854775807 - 1 ? static_cast<float>(val)
+      return val != -9223372036854775807 - 1 ? static_cast<double>(val)
                                              : missing;
     }
     default: {
@@ -631,7 +631,7 @@ XGB_DLL int XGDMatrixCreateFromDT(void** data, const char** feature_stypes,
       DTType dtype = DTGetType(feature_stypes[j]);
 #pragma omp for schedule(static)
       for (omp_ulong i = 0; i < nrow; ++i) {
-        float val = DTGetValue(data[j], dtype, i);
+        double val = DTGetValue(data[j], dtype, i);
         if (!std::isnan(val)) {
           page_offset[i + 1]++;
         }
@@ -653,7 +653,7 @@ XGB_DLL int XGDMatrixCreateFromDT(void** data, const char** feature_stypes,
       DTType dtype = DTGetType(feature_stypes[j]);
 #pragma omp for schedule(static)
       for (omp_ulong i = 0; i < nrow; ++i) {
-        float val = DTGetValue(data[j], dtype, i);
+        double val = DTGetValue(data[j], dtype, i);
         if (!std::isnan(val)) {
           page_data[page_offset[i] + position[i]] = Entry(j, val);
           position[i]++;
@@ -747,7 +747,7 @@ XGB_DLL int XGDMatrixSaveBinary(DMatrixHandle handle,
 
 XGB_DLL int XGDMatrixSetFloatInfo(DMatrixHandle handle,
                           const char* field,
-                          const bst_float* info,
+                          const bst_double* info,
                           xgboost::bst_ulong len) {
   API_BEGIN();
   CHECK_HANDLE();
@@ -785,11 +785,11 @@ XGB_DLL int XGDMatrixSetGroup(DMatrixHandle handle,
 XGB_DLL int XGDMatrixGetFloatInfo(const DMatrixHandle handle,
                                   const char* field,
                                   xgboost::bst_ulong* out_len,
-                                  const bst_float** out_dptr) {
+                                  const bst_double** out_dptr) {
   API_BEGIN();
   CHECK_HANDLE();
   const MetaInfo& info = static_cast<std::shared_ptr<DMatrix>*>(handle)->get()->Info();
-  const std::vector<bst_float>* vec = nullptr;
+  const std::vector<bst_double>* vec = nullptr;
   if (!std::strcmp(field, "label")) {
     vec = &info.labels_.HostVector();
   } else if (!std::strcmp(field, "weight")) {
@@ -797,7 +797,7 @@ XGB_DLL int XGDMatrixGetFloatInfo(const DMatrixHandle handle,
   } else if (!std::strcmp(field, "base_margin")) {
     vec = &info.base_margin_.HostVector();
   } else {
-    LOG(FATAL) << "Unknown float field name " << field;
+    LOG(FATAL) << "Unknown double field name " << field;
   }
   *out_len = static_cast<xgboost::bst_ulong>(vec->size());  // NOLINT
   *out_dptr = dmlc::BeginPtr(*vec);
@@ -885,8 +885,8 @@ XGB_DLL int XGBoosterUpdateOneIter(BoosterHandle handle,
 
 XGB_DLL int XGBoosterBoostOneIter(BoosterHandle handle,
                                   DMatrixHandle dtrain,
-                                  bst_float *grad,
-                                  bst_float *hess,
+                                  bst_double *grad,
+                                  bst_double *hess,
                                   xgboost::bst_ulong len) {
   HostDeviceVector<GradientPair> tmp_gpair;
   API_BEGIN();
@@ -934,14 +934,14 @@ XGB_DLL int XGBoosterPredict(BoosterHandle handle,
                              int option_mask,
                              unsigned ntree_limit,
                              xgboost::bst_ulong *len,
-                             const bst_float **out_result) {
-  std::vector<bst_float>&preds =
-    XGBAPIThreadLocalStore::Get()->ret_vec_float;
+                             const bst_double **out_result) {
+  std::vector<bst_double>&preds =
+    XGBAPIThreadLocalStore::Get()->ret_vec_double;
   API_BEGIN();
   CHECK_HANDLE();
   auto *bst = static_cast<Booster*>(handle);
   bst->LazyInit();
-  HostDeviceVector<bst_float> tmp_preds;
+  HostDeviceVector<bst_double> tmp_preds;
   bst->learner()->Predict(
       static_cast<std::shared_ptr<DMatrix>*>(dmat)->get(),
       (option_mask & 1) != 0,

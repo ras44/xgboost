@@ -49,15 +49,15 @@ void SplitEvaluator::AddSplit(bst_uint nodeid,
                               bst_uint leftid,
                               bst_uint rightid,
                               bst_uint featureid,
-                              bst_float leftweight,
-                              bst_float rightweight) {}
+                              bst_double leftweight,
+                              bst_double rightweight) {}
 
-bst_float SplitEvaluator::ComputeSplitScore(bst_uint nodeid,
+bst_double SplitEvaluator::ComputeSplitScore(bst_uint nodeid,
                                             bst_uint featureid,
                                             const GradStats& left_stats,
                                             const GradStats& right_stats) const {
-  bst_float left_weight = ComputeWeight(nodeid, left_stats);
-  bst_float right_weight = ComputeWeight(nodeid, right_stats);
+  bst_double left_weight = ComputeWeight(nodeid, left_stats);
+  bst_double right_weight = ComputeWeight(nodeid, right_stats);
   return ComputeSplitScore(nodeid, featureid, left_stats, right_stats, left_weight, right_weight);
 }
 
@@ -67,12 +67,12 @@ bool SplitEvaluator::CheckFeatureConstraint(bst_uint nodeid, bst_uint featureid)
 
 //! \brief Encapsulates the parameters for ElasticNet
 struct ElasticNetParams : public dmlc::Parameter<ElasticNetParams> {
-  bst_float reg_lambda;
-  bst_float reg_alpha;
+  bst_double reg_lambda;
+  bst_double reg_alpha;
   // maximum delta update we can add in weight estimation
   // this parameter can be used to stabilize update
   // default=0 means no constraint on weight delta
-  float max_delta_step;
+  double max_delta_step;
 
   DMLC_DECLARE_PARAMETER(ElasticNetParams) {
     DMLC_DECLARE_FIELD(reg_lambda)
@@ -115,24 +115,24 @@ class ElasticNet final : public SplitEvaluator {
     return r;
   }
 
-  bst_float ComputeSplitScore(bst_uint nodeid,
+  bst_double ComputeSplitScore(bst_uint nodeid,
                              bst_uint featureid,
                              const GradStats& left_stats,
                              const GradStats& right_stats,
-                             bst_float left_weight,
-                             bst_float right_weight) const override {
+                             bst_double left_weight,
+                             bst_double right_weight) const override {
     return ComputeScore(nodeid, left_stats, left_weight) +
       ComputeScore(nodeid, right_stats, right_weight);
   }
 
-  bst_float ComputeSplitScore(bst_uint nodeid,
+  bst_double ComputeSplitScore(bst_uint nodeid,
                              bst_uint featureid,
                              const GradStats& left_stats,
                              const GradStats& right_stats) const override {
     return ComputeScore(nodeid, left_stats) + ComputeScore(nodeid, right_stats);
   }
 
-  bst_float ComputeScore(bst_uint parentID, const GradStats &stats, bst_float weight)
+  bst_double ComputeScore(bst_uint parentID, const GradStats &stats, bst_double weight)
       const override {
     auto loss = weight * (2.0 * stats.sum_grad + stats.sum_hess * weight
         + params_.reg_lambda * weight)
@@ -140,7 +140,7 @@ class ElasticNet final : public SplitEvaluator {
     return -loss;
   }
 
-  bst_float ComputeScore(bst_uint parentID, const GradStats &stats) const {
+  bst_double ComputeScore(bst_uint parentID, const GradStats &stats) const {
     if (params_.max_delta_step == 0.0f) {
       return Sqr(ThresholdL1(stats.sum_grad)) / (stats.sum_hess + params_.reg_lambda);
     } else {
@@ -148,9 +148,9 @@ class ElasticNet final : public SplitEvaluator {
     }
   }
 
-  bst_float ComputeWeight(bst_uint parentID, const GradStats& stats)
+  bst_double ComputeWeight(bst_uint parentID, const GradStats& stats)
       const override {
-    bst_float w = -ThresholdL1(stats.sum_grad) / (stats.sum_hess + params_.reg_lambda);
+    bst_double w = -ThresholdL1(stats.sum_grad) / (stats.sum_hess + params_.reg_lambda);
     if (params_.max_delta_step != 0.0f && std::abs(w) > params_.max_delta_step) {
       w = std::copysign(params_.max_delta_step, w);
     }
@@ -217,8 +217,8 @@ class MonotonicConstraint final : public SplitEvaluator {
   }
 
   void Reset() override {
-    lower_.resize(1, -std::numeric_limits<bst_float>::max());
-    upper_.resize(1, std::numeric_limits<bst_float>::max());
+    lower_.resize(1, -std::numeric_limits<bst_double>::max());
+    upper_.resize(1, std::numeric_limits<bst_double>::max());
   }
 
   SplitEvaluator* GetHostClone() const override {
@@ -234,15 +234,15 @@ class MonotonicConstraint final : public SplitEvaluator {
     }
   }
 
-  bst_float ComputeSplitScore(bst_uint nodeid,
+  bst_double ComputeSplitScore(bst_uint nodeid,
                              bst_uint featureid,
                              const GradStats& left_stats,
                              const GradStats& right_stats,
-                             bst_float left_weight,
-                             bst_float right_weight) const override {
-    bst_float infinity = std::numeric_limits<bst_float>::infinity();
+                             bst_double left_weight,
+                             bst_double right_weight) const override {
+    bst_double infinity = std::numeric_limits<bst_double>::infinity();
     bst_int constraint = GetConstraint(featureid);
-    bst_float score = inner_->ComputeSplitScore(
+    bst_double score = inner_->ComputeSplitScore(
       nodeid, featureid, left_stats, right_stats, left_weight, right_weight);
 
     if (constraint == 0) {
@@ -254,14 +254,14 @@ class MonotonicConstraint final : public SplitEvaluator {
     }
   }
 
-  bst_float ComputeScore(bst_uint parentID, const GradStats& stats, bst_float weight)
+  bst_double ComputeScore(bst_uint parentID, const GradStats& stats, bst_double weight)
       const override {
     return inner_->ComputeScore(parentID, stats, weight);
   }
 
-  bst_float ComputeWeight(bst_uint parentID, const GradStats& stats)
+  bst_double ComputeWeight(bst_uint parentID, const GradStats& stats)
       const override {
-    bst_float weight = inner_->ComputeWeight(parentID, stats);
+    bst_double weight = inner_->ComputeWeight(parentID, stats);
 
     if (parentID == ROOT_PARENT_ID) {
       // This is the root node
@@ -279,15 +279,15 @@ class MonotonicConstraint final : public SplitEvaluator {
                 bst_uint leftid,
                 bst_uint rightid,
                 bst_uint featureid,
-                bst_float leftweight,
-                bst_float rightweight) override {
+                bst_double leftweight,
+                bst_double rightweight) override {
     inner_->AddSplit(nodeid, leftid, rightid, featureid, leftweight, rightweight);
     bst_uint newsize = std::max(leftid, rightid) + 1;
     lower_.resize(newsize);
     upper_.resize(newsize);
     bst_int constraint = GetConstraint(featureid);
 
-    bst_float mid = (leftweight + rightweight) / 2;
+    bst_double mid = (leftweight + rightweight) / 2;
     CHECK(!std::isnan(mid));
     CHECK(nodeid < upper_.size());
 
@@ -312,8 +312,8 @@ class MonotonicConstraint final : public SplitEvaluator {
  private:
   MonotonicConstraintParams params_;
   std::unique_ptr<SplitEvaluator> inner_;
-  std::vector<bst_float> lower_;
-  std::vector<bst_float> upper_;
+  std::vector<bst_double> lower_;
+  std::vector<bst_double> upper_;
 
   inline bst_int GetConstraint(bst_uint featureid) const {
     if (featureid < params_.monotone_constraints.size()) {
@@ -415,29 +415,29 @@ class InteractionConstraint final : public SplitEvaluator {
     }
   }
 
-  bst_float ComputeSplitScore(bst_uint nodeid,
+  bst_double ComputeSplitScore(bst_uint nodeid,
                               bst_uint featureid,
                               const GradStats& left_stats,
                               const GradStats& right_stats,
-                              bst_float left_weight,
-                              bst_float right_weight) const override {
+                              bst_double left_weight,
+                              bst_double right_weight) const override {
     // Return negative infinity score if feature is not permitted by interaction constraints
     if (!CheckInteractionConstraint(featureid, nodeid)) {
-      return -std::numeric_limits<bst_float>::infinity();
+      return -std::numeric_limits<bst_double>::infinity();
     }
 
     // Otherwise, get score from inner evaluator
-    bst_float score = inner_->ComputeSplitScore(
+    bst_double score = inner_->ComputeSplitScore(
       nodeid, featureid, left_stats, right_stats, left_weight, right_weight);
     return score;
   }
 
-  bst_float ComputeScore(bst_uint parentID, const GradStats& stats, bst_float weight)
+  bst_double ComputeScore(bst_uint parentID, const GradStats& stats, bst_double weight)
       const override {
     return inner_->ComputeScore(parentID, stats, weight);
   }
 
-  bst_float ComputeWeight(bst_uint parentID, const GradStats& stats)
+  bst_double ComputeWeight(bst_uint parentID, const GradStats& stats)
       const override {
     return inner_->ComputeWeight(parentID, stats);
   }
@@ -446,8 +446,8 @@ class InteractionConstraint final : public SplitEvaluator {
                 bst_uint leftid,
                 bst_uint rightid,
                 bst_uint featureid,
-                bst_float leftweight,
-                bst_float rightweight) override {
+                bst_double leftweight,
+                bst_double rightweight) override {
     inner_->AddSplit(nodeid, leftid, rightid, featureid, leftweight, rightweight);
 
     if (params_.interaction_constraints.empty()) {

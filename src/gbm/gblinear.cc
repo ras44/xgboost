@@ -24,7 +24,7 @@ DMLC_REGISTRY_FILE_TAG(gblinear);
 // training parameters
 struct GBLinearTrainParam : public dmlc::Parameter<GBLinearTrainParam> {
   std::string updater;
-  float tolerance;
+  double tolerance;
   size_t max_row_perbatch;
   DMLC_DECLARE_PARAMETER(GBLinearTrainParam) {
     DMLC_DECLARE_FIELD(updater)
@@ -45,7 +45,7 @@ struct GBLinearTrainParam : public dmlc::Parameter<GBLinearTrainParam> {
 class GBLinear : public GradientBooster {
  public:
   explicit GBLinear(const std::vector<std::shared_ptr<DMatrix> > &cache,
-                    bst_float base_margin)
+                    bst_double base_margin)
       : base_margin_(base_margin),
         sum_instance_weight_(0),
         sum_weight_complete_(false),
@@ -90,7 +90,7 @@ class GBLinear : public GradientBooster {
   }
 
   void PredictBatch(DMatrix *p_fmat,
-                    HostDeviceVector<bst_float> *out_preds,
+                    HostDeviceVector<bst_double> *out_preds,
                     unsigned ntree_limit) override {
     monitor_.Start("PredictBatch");
     CHECK_EQ(ntree_limit, 0U)
@@ -99,7 +99,7 @@ class GBLinear : public GradientBooster {
     // Try to predict from cache
     auto it = cache_.find(p_fmat);
     if (it != cache_.end() && it->second.predictions.size() != 0) {
-      std::vector<bst_float> &y = it->second.predictions;
+      std::vector<bst_double> &y = it->second.predictions;
       out_preds->Resize(y.size());
       std::copy(y.begin(), y.end(), out_preds->HostVector().begin());
     } else {
@@ -109,7 +109,7 @@ class GBLinear : public GradientBooster {
   }
   // add base margin
   void PredictInstance(const SparsePage::Inst &inst,
-               std::vector<bst_float> *out_preds,
+               std::vector<bst_double> *out_preds,
                unsigned ntree_limit,
                unsigned root_index) override {
     const int ngroup = model_.param.num_output_group;
@@ -119,13 +119,13 @@ class GBLinear : public GradientBooster {
   }
 
   void PredictLeaf(DMatrix *p_fmat,
-                   std::vector<bst_float> *out_preds,
+                   std::vector<bst_double> *out_preds,
                    unsigned ntree_limit) override {
     LOG(FATAL) << "gblinear does not support prediction of leaf index";
   }
 
   void PredictContribution(DMatrix* p_fmat,
-                           std::vector<bst_float>* out_contribs,
+                           std::vector<bst_double>* out_contribs,
                            unsigned ntree_limit, bool approximate, int condition = 0,
                            unsigned condition_feature = 0) override {
     model_.LazyInitModel();
@@ -135,7 +135,7 @@ class GBLinear : public GradientBooster {
     const int ngroup = model_.param.num_output_group;
     const size_t ncolumns = model_.param.num_feature + 1;
     // allocate space for (#features + bias) times #groups times #rows
-    std::vector<bst_float>& contribs = *out_contribs;
+    std::vector<bst_double>& contribs = *out_contribs;
     contribs.resize(p_fmat->Info().num_row_ * ncolumns * ngroup);
     // make sure contributions is zeroed, we could be reusing a previously allocated one
     std::fill(contribs.begin(), contribs.end(), 0);
@@ -149,7 +149,7 @@ class GBLinear : public GradientBooster {
         auto row_idx = static_cast<size_t>(batch.base_rowid + i);
         // loop over output groups
         for (int gid = 0; gid < ngroup; ++gid) {
-          bst_float *p_contribs = &contribs[(row_idx * ngroup + gid) * ncolumns];
+          bst_double *p_contribs = &contribs[(row_idx * ngroup + gid) * ncolumns];
           // calculate linear terms' contributions
           for (auto& ins : inst) {
             if (ins.index >= model_.param.num_feature) continue;
@@ -164,9 +164,9 @@ class GBLinear : public GradientBooster {
   }
 
   void PredictInteractionContributions(DMatrix* p_fmat,
-                           std::vector<bst_float>* out_contribs,
+                           std::vector<bst_double>* out_contribs,
                            unsigned ntree_limit, bool approximate) override {
-                             std::vector<bst_float>& contribs = *out_contribs;
+                             std::vector<bst_double>& contribs = *out_contribs;
 
      // linear models have no interaction effects
      const size_t nelements = model_.param.num_feature*model_.param.num_feature;
@@ -182,10 +182,10 @@ class GBLinear : public GradientBooster {
 
  protected:
   void PredictBatchInternal(DMatrix *p_fmat,
-               std::vector<bst_float> *out_preds) {
+               std::vector<bst_double> *out_preds) {
     monitor_.Start("PredictBatchInternal");
       model_.LazyInitModel();
-    std::vector<bst_float> &preds = *out_preds;
+    std::vector<bst_double> &preds = *out_preds;
     const auto& base_margin = p_fmat->Info().base_margin_.ConstHostVector();
     // start collecting the prediction
     const int ngroup = model_.param.num_output_group;
@@ -200,7 +200,7 @@ class GBLinear : public GradientBooster {
         const size_t ridx = batch.base_rowid + i;
         // loop over output groups
         for (int gid = 0; gid < ngroup; ++gid) {
-          bst_float margin =  (base_margin.size() != 0) ?
+          bst_double margin =  (base_margin.size() != 0) ?
               base_margin[ridx * ngroup + gid] : base_margin_;
           this->Pred(batch[i], &preds[ridx * ngroup], gid, margin);
         }
@@ -227,7 +227,7 @@ class GBLinear : public GradientBooster {
       previous_model_ = model_;
       return false;
     }
-    float largest_dw = 0.0;
+    double largest_dw = 0.0;
     for (size_t i = 0; i < model_.weight.size(); i++) {
       largest_dw = std::max(
           largest_dw, std::abs(model_.weight[i] - previous_model_.weight[i]));
@@ -248,9 +248,9 @@ class GBLinear : public GradientBooster {
     }
   }
 
-  inline void Pred(const SparsePage::Inst &inst, bst_float *preds, int gid,
-                   bst_float base) {
-    bst_float psum = model_.bias()[gid] + base;
+  inline void Pred(const SparsePage::Inst &inst, bst_double *preds, int gid,
+                   bst_double base) {
+    bst_double psum = model_.bias()[gid] + base;
     for (const auto& ins : inst) {
       if (ins.index >= model_.param.num_feature) continue;
       psum += ins.fvalue * model_[ins.index][gid];
@@ -258,7 +258,7 @@ class GBLinear : public GradientBooster {
     preds[gid] = psum;
   }
   // biase margin score
-  bst_float base_margin_;
+  bst_double base_margin_;
   // model field
   GBLinearModel model_;
   GBLinearModel previous_model_;
@@ -276,7 +276,7 @@ class GBLinear : public GradientBooster {
    */
   struct PredictionCacheEntry {
     std::shared_ptr<DMatrix> data;
-    std::vector<bst_float> predictions;
+    std::vector<bst_double> predictions;
   };
 
   /**
@@ -293,7 +293,7 @@ DMLC_REGISTER_PARAMETER(GBLinearTrainParam);
 XGBOOST_REGISTER_GBM(GBLinear, "gblinear")
     .describe("Linear booster, implement generalized linear model.")
     .set_body([](const std::vector<std::shared_ptr<DMatrix> > &cache,
-                 bst_float base_margin) {
+                 bst_double base_margin) {
       return new GBLinear(cache, base_margin);
     });
 }  // namespace gbm

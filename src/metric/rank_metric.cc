@@ -31,16 +31,16 @@ struct EvalAMS : public Metric {
     name_ = os.str();
   }
 
-  bst_float Eval(const HostDeviceVector<bst_float> &preds,
+  bst_double Eval(const HostDeviceVector<bst_double> &preds,
                  const MetaInfo &info,
                  bool distributed) override {
     CHECK(!distributed) << "metric AMS do not support distributed evaluation";
     using namespace std;  // NOLINT(*)
 
     const auto ndata = static_cast<bst_omp_uint>(info.labels_.Size());
-    std::vector<std::pair<bst_float, unsigned> > rec(ndata);
+    std::vector<std::pair<bst_double, unsigned> > rec(ndata);
 
-    const std::vector<bst_float>& h_preds = preds.HostVector();
+    const std::vector<bst_double>& h_preds = preds.HostVector();
 #pragma omp parallel for schedule(static)
     for (bst_omp_uint i = 0; i < ndata; ++i) {
       rec[i] = std::make_pair(h_preds[i], i);
@@ -54,7 +54,7 @@ struct EvalAMS : public Metric {
     const auto& labels = info.labels_.HostVector();
     for (unsigned i = 0; i < static_cast<unsigned>(ndata-1) && i < ntop; ++i) {
       const unsigned ridx = rec[i].second;
-      const bst_float wt = info.GetWeight(ridx);
+      const bst_double wt = info.GetWeight(ridx);
       if (labels[ridx] > 0.5f) {
         s_tp += wt;
       } else {
@@ -69,10 +69,10 @@ struct EvalAMS : public Metric {
       }
     }
     if (ntop == ndata) {
-      LOG(INFO) << "best-ams-ratio=" << static_cast<bst_float>(thresindex) / ndata;
-      return static_cast<bst_float>(tams);
+      LOG(INFO) << "best-ams-ratio=" << static_cast<bst_double>(thresindex) / ndata;
+      return static_cast<bst_double>(tams);
     } else {
-      return static_cast<bst_float>(
+      return static_cast<bst_double>(
           sqrt(2 * ((s_tp + b_fp + br) * log(1.0 + s_tp/(b_fp + br)) - s_tp)));
     }
   }
@@ -83,12 +83,12 @@ struct EvalAMS : public Metric {
 
  private:
   std::string name_;
-  float ratio_;
+  double ratio_;
 };
 
 /*! \brief Area Under Curve, for both classification and rank */
 struct EvalAuc : public Metric {
-  bst_float Eval(const HostDeviceVector<bst_float> &preds,
+  bst_double Eval(const HostDeviceVector<bst_double> &preds,
                  const MetaInfo &info,
                  bool distributed) override {
     CHECK_NE(info.labels_.Size(), 0U) << "label set cannot be empty";
@@ -102,12 +102,12 @@ struct EvalAuc : public Metric {
         << "EvalAuc: group structure must match number of prediction";
     const auto ngroup = static_cast<bst_omp_uint>(gptr.size() - 1);
     // sum statistics
-    bst_float sum_auc = 0.0f;
+    bst_double sum_auc = 0.0f;
     int auc_error = 0;
     // each thread takes a local rec
-    std::vector< std::pair<bst_float, unsigned> > rec;
+    std::vector< std::pair<bst_double, unsigned> > rec;
     const auto& labels = info.labels_.HostVector();
-    const std::vector<bst_float>& h_preds = preds.HostVector();
+    const std::vector<bst_double>& h_preds = preds.HostVector();
     for (bst_omp_uint k = 0; k < ngroup; ++k) {
       rec.clear();
       for (unsigned j = gptr[k]; j < gptr[k + 1]; ++j) {
@@ -118,8 +118,8 @@ struct EvalAuc : public Metric {
       double sum_pospair = 0.0;
       double sum_npos = 0.0, sum_nneg = 0.0, buf_pos = 0.0, buf_neg = 0.0;
       for (size_t j = 0; j < rec.size(); ++j) {
-        const bst_float wt = info.GetWeight(rec[j].second);
-        const bst_float ctr = labels[rec[j].second];
+        const bst_double wt = info.GetWeight(rec[j].second);
+        const bst_double ctr = labels[rec[j].second];
         // keep bucketing predictions in same bucket
         if (j != 0 && rec[j].first != rec[j - 1].first) {
           sum_pospair += buf_neg * (sum_npos + buf_pos *0.5);
@@ -144,14 +144,14 @@ struct EvalAuc : public Metric {
     CHECK(!auc_error)
       << "AUC: the dataset only contains pos or neg samples";
     if (distributed) {
-      bst_float dat[2];
-      dat[0] = static_cast<bst_float>(sum_auc);
-      dat[1] = static_cast<bst_float>(ngroup);
+      bst_double dat[2];
+      dat[0] = static_cast<bst_double>(sum_auc);
+      dat[1] = static_cast<bst_double>(ngroup);
       // approximately estimate auc using mean
       rabit::Allreduce<rabit::op::Sum>(dat, 2);
       return dat[0] / dat[1];
     } else {
-      return static_cast<bst_float>(sum_auc) / ngroup;
+      return static_cast<bst_double>(sum_auc) / ngroup;
     }
   }
   const char* Name() const override {
@@ -162,7 +162,7 @@ struct EvalAuc : public Metric {
 /*! \brief Evaluate rank list */
 struct EvalRankList : public Metric {
  public:
-  bst_float Eval(const HostDeviceVector<bst_float> &preds,
+  bst_double Eval(const HostDeviceVector<bst_double> &preds,
                  const MetaInfo &info,
                  bool distributed) override {
     CHECK_EQ(preds.Size(), info.labels_.Size())
@@ -179,11 +179,11 @@ struct EvalRankList : public Metric {
     double sum_metric = 0.0f;
     const auto& labels = info.labels_.HostVector();
 
-    const std::vector<bst_float>& h_preds = preds.HostVector();
+    const std::vector<bst_double>& h_preds = preds.HostVector();
 #pragma omp parallel reduction(+:sum_metric)
     {
       // each thread takes a local rec
-      std::vector< std::pair<bst_float, unsigned> > rec;
+      std::vector< std::pair<bst_double, unsigned> > rec;
       #pragma omp for schedule(static)
       for (bst_omp_uint k = 0; k < ngroup; ++k) {
         rec.clear();
@@ -194,14 +194,14 @@ struct EvalRankList : public Metric {
       }
     }
     if (distributed) {
-      bst_float dat[2];
-      dat[0] = static_cast<bst_float>(sum_metric);
-      dat[1] = static_cast<bst_float>(ngroup);
+      bst_double dat[2];
+      dat[0] = static_cast<bst_double>(sum_metric);
+      dat[1] = static_cast<bst_double>(ngroup);
       // approximately estimate the metric using mean
       rabit::Allreduce<rabit::op::Sum>(dat, 2);
       return dat[0] / dat[1];
     } else {
-      return static_cast<bst_float>(sum_metric) / ngroup;
+      return static_cast<bst_double>(sum_metric) / ngroup;
     }
   }
   const char* Name() const override {
@@ -228,7 +228,7 @@ struct EvalRankList : public Metric {
     }
   }
   /*! \return evaluation metric, given the pair_sort record, (pred,label) */
-  virtual bst_float EvalMetric(std::vector<std::pair<bst_float, unsigned> > &pair_sort) const = 0; // NOLINT(*)
+  virtual bst_double EvalMetric(std::vector<std::pair<bst_double, unsigned> > &pair_sort) const = 0; // NOLINT(*)
 
  protected:
   unsigned topn_;
@@ -242,14 +242,14 @@ struct EvalPrecision : public EvalRankList{
   explicit EvalPrecision(const char *name) : EvalRankList("pre", name) {}
 
  protected:
-  bst_float EvalMetric(std::vector< std::pair<bst_float, unsigned> > &rec) const override {
+  bst_double EvalMetric(std::vector< std::pair<bst_double, unsigned> > &rec) const override {
     // calculate Precision
     std::sort(rec.begin(), rec.end(), common::CmpFirst);
     unsigned nhit = 0;
     for (size_t j = 0; j < rec.size() && j < this->topn_; ++j) {
       nhit += (rec[j].second != 0);
     }
-    return static_cast<bst_float>(nhit) / topn_;
+    return static_cast<bst_double>(nhit) / topn_;
   }
 };
 
@@ -259,7 +259,7 @@ struct EvalNDCG : public EvalRankList{
   explicit EvalNDCG(const char *name) : EvalRankList("ndcg", name) {}
 
  protected:
-  inline bst_float CalcDCG(const std::vector<std::pair<bst_float, unsigned> > &rec) const {
+  inline bst_double CalcDCG(const std::vector<std::pair<bst_double, unsigned> > &rec) const {
     double sumdcg = 0.0;
     for (size_t i = 0; i < rec.size() && i < this->topn_; ++i) {
       const unsigned rel = rec[i].second;
@@ -269,11 +269,11 @@ struct EvalNDCG : public EvalRankList{
     }
     return sumdcg;
   }
-  virtual bst_float EvalMetric(std::vector<std::pair<bst_float, unsigned> > &rec) const { // NOLINT(*)
+  virtual bst_double EvalMetric(std::vector<std::pair<bst_double, unsigned> > &rec) const { // NOLINT(*)
     XGBOOST_PARALLEL_STABLE_SORT(rec.begin(), rec.end(), common::CmpFirst);
-    bst_float dcg = this->CalcDCG(rec);
+    bst_double dcg = this->CalcDCG(rec);
     XGBOOST_PARALLEL_STABLE_SORT(rec.begin(), rec.end(), common::CmpSecond);
-    bst_float idcg = this->CalcDCG(rec);
+    bst_double idcg = this->CalcDCG(rec);
     if (idcg == 0.0f) {
       if (minus_) {
         return 0.0f;
@@ -291,7 +291,7 @@ struct EvalMAP : public EvalRankList {
   explicit EvalMAP(const char *name) : EvalRankList("map", name) {}
 
  protected:
-  bst_float EvalMetric(std::vector< std::pair<bst_float, unsigned> > &rec) const override {
+  bst_double EvalMetric(std::vector< std::pair<bst_double, unsigned> > &rec) const override {
     std::sort(rec.begin(), rec.end(), common::CmpFirst);
     unsigned nhits = 0;
     double sumap = 0.0;
@@ -299,13 +299,13 @@ struct EvalMAP : public EvalRankList {
       if (rec[i].second != 0) {
         nhits += 1;
         if (i < this->topn_) {
-          sumap += static_cast<bst_float>(nhits) / (i + 1);
+          sumap += static_cast<bst_double>(nhits) / (i + 1);
         }
       }
     }
     if (nhits != 0) {
       sumap /= nhits;
-      return static_cast<bst_float>(sumap);
+      return static_cast<bst_double>(sumap);
     } else {
       if (minus_) {
         return 0.0f;
@@ -320,7 +320,7 @@ struct EvalMAP : public EvalRankList {
 struct EvalCox : public Metric {
  public:
   EvalCox() = default;
-  bst_float Eval(const HostDeviceVector<bst_float> &preds,
+  bst_double Eval(const HostDeviceVector<bst_double> &preds,
                  const MetaInfo &info,
                  bool distributed) override {
     CHECK(!distributed) << "Cox metric does not support distributed evaluation";
@@ -332,7 +332,7 @@ struct EvalCox : public Metric {
     // pre-compute a sum for the denominator
     double exp_p_sum = 0;  // we use double because we might need the precision with large datasets
 
-    const std::vector<bst_float>& h_preds = preds.HostVector();
+    const std::vector<bst_double>& h_preds = preds.HostVector();
     for (omp_ulong i = 0; i < ndata; ++i) {
       exp_p_sum += h_preds[i];
     }
@@ -371,7 +371,7 @@ struct EvalAucPR : public Metric {
   // translated from PRROC R Package
   // see https://doi.org/10.1371/journal.pone.0092209
 
-  bst_float Eval(const HostDeviceVector<bst_float> &preds, const MetaInfo &info,
+  bst_double Eval(const HostDeviceVector<bst_double> &preds, const MetaInfo &info,
                  bool distributed) override {
     CHECK_NE(info.labels_.Size(), 0U) << "label set cannot be empty";
     CHECK_EQ(preds.Size(), info.labels_.Size())
@@ -387,9 +387,9 @@ struct EvalAucPR : public Metric {
     double auc = 0.0;
     int auc_error = 0, auc_gt_one = 0;
     // each thread takes a local rec
-    std::vector<std::pair<bst_float, unsigned>> rec;
+    std::vector<std::pair<bst_double, unsigned>> rec;
     const auto& h_labels = info.labels_.HostVector();
-    const std::vector<bst_float>& h_preds = preds.HostVector();
+    const std::vector<bst_double>& h_preds = preds.HostVector();
 
     for (bst_omp_uint k = 0; k < ngroup; ++k) {
       double total_pos = 0.0;
@@ -441,14 +441,14 @@ struct EvalAucPR : public Metric {
     CHECK(!auc_error) << "AUC-PR: the dataset only contains pos or neg samples";
     CHECK(!auc_gt_one) << "AUC-PR: AUC > 1.0";
     if (distributed) {
-      bst_float dat[2];
-      dat[0] = static_cast<bst_float>(auc);
-      dat[1] = static_cast<bst_float>(ngroup);
+      bst_double dat[2];
+      dat[0] = static_cast<bst_double>(auc);
+      dat[1] = static_cast<bst_double>(ngroup);
       // approximately estimate auc using mean
       rabit::Allreduce<rabit::op::Sum>(dat, 2);
       return dat[0] / dat[1];
     } else {
-      return static_cast<bst_float>(auc) / ngroup;
+      return static_cast<bst_double>(auc) / ngroup;
     }
   }
   const char *Name() const override { return "aucpr"; }

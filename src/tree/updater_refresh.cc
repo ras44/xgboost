@@ -83,7 +83,7 @@ class TreeRefresher: public TreeUpdater {
     };
     reducer_.Allreduce(dmlc::BeginPtr(stemp[0]), stemp[0].size(), lazy_get_stats);
     // rescale learning rate according to size of trees
-    float lr = param_.learning_rate;
+    double lr = param_.learning_rate;
     param_.learning_rate = lr / trees.size();
     int offset = 0;
     for (auto tree : trees) {
@@ -117,14 +117,14 @@ class TreeRefresher: public TreeUpdater {
                       int nid, RegTree *p_tree) {
     RegTree &tree = *p_tree;
     tree.Stat(nid).base_weight =
-        static_cast<bst_float>(CalcWeight(param_, gstats[nid]));
-    tree.Stat(nid).sum_hess = static_cast<bst_float>(gstats[nid].sum_hess);
+        static_cast<bst_double>(CalcWeight(param_, gstats[nid]));
+    tree.Stat(nid).sum_hess = static_cast<bst_double>(gstats[nid].sum_hess);
     if (tree[nid].IsLeaf()) {
       if (param_.refresh_leaf) {
         tree[nid].SetLeaf(tree.Stat(nid).base_weight * param_.learning_rate);
       }
     } else {
-      tree.Stat(nid).loss_chg = static_cast<bst_float>(
+      tree.Stat(nid).loss_chg = static_cast<bst_double>(
           xgboost::tree::CalcGain(param_, gstats[tree[nid].LeftChild()]) +
           xgboost::tree::CalcGain(param_, gstats[tree[nid].RightChild()]) -
           xgboost::tree::CalcGain(param_, gstats[nid]));

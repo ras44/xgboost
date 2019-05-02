@@ -33,7 +33,7 @@ class ShotgunUpdater : public LinearUpdater {
     for (int gid = 0; gid < ngroup; ++gid) {
       auto grad = GetBiasGradientParallel(gid, ngroup,
                                           in_gpair->ConstHostVector(), p_fmat);
-      auto dbias = static_cast<bst_float>(param_.learning_rate *
+      auto dbias = static_cast<bst_double>(param_.learning_rate *
                                CoordinateDeltaBias(grad.first, grad.second));
       model->bias()[gid] += dbias;
       UpdateBiasResidualParallel(gid, ngroup, dbias, &in_gpair->HostVector(), p_fmat);
@@ -57,12 +57,12 @@ class ShotgunUpdater : public LinearUpdater {
           for (auto& c : col) {
             const GradientPair &p = gpair[c.index * ngroup + gid];
             if (p.GetHess() < 0.0f) continue;
-            const bst_float v = c.fvalue;
+            const bst_double v = c.fvalue;
             sum_grad += p.GetGrad() * v;
             sum_hess += p.GetHess() * v * v;
           }
-          bst_float &w = (*model)[fid][gid];
-          auto dw = static_cast<bst_float>(
+          bst_double &w = (*model)[fid][gid];
+          auto dw = static_cast<bst_double>(
               param_.learning_rate *
               CoordinateDelta(sum_grad, sum_hess, w, param_.reg_alpha_denorm,
                               param_.reg_lambda_denorm));

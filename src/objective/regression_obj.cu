@@ -27,7 +27,7 @@ DMLC_REGISTRY_FILE_TAG(regression_obj_gpu);
 #endif  // defined(XGBOOST_USE_CUDA)
 
 struct RegLossParam : public dmlc::Parameter<RegLossParam> {
-  float scale_pos_weight;
+  double scale_pos_weight;
   int n_gpus;
   int gpu_id;
   // declare parameters
@@ -57,7 +57,7 @@ class RegLossObj : public ObjFunction {
     label_correct_.Resize(devices_.IsEmpty() ? 1 : devices_.Size());
   }
 
-  void GetGradient(const HostDeviceVector<bst_float>& preds,
+  void GetGradient(const HostDeviceVector<bst_double>& preds,
                    const MetaInfo &info,
                    int iter,
                    HostDeviceVector<GradientPair>* out_gpair) override {
@@ -75,12 +75,12 @@ class RegLossObj : public ObjFunction {
         [=] XGBOOST_DEVICE(size_t _idx,
                            common::Span<int> _label_correct,
                            common::Span<GradientPair> _out_gpair,
-                           common::Span<const bst_float> _preds,
-                           common::Span<const bst_float> _labels,
-                           common::Span<const bst_float> _weights) {
-          bst_float p = Loss::PredTransform(_preds[_idx]);
-          bst_float w = is_null_weight ? 1.0f : _weights[_idx];
-          bst_float label = _labels[_idx];
+                           common::Span<const bst_double> _preds,
+                           common::Span<const bst_double> _labels,
+                           common::Span<const bst_double> _weights) {
+          bst_double p = Loss::PredTransform(_preds[_idx]);
+          bst_double w = is_null_weight ? 1.0f : _weights[_idx];
+          bst_double label = _labels[_idx];
           if (label == 1.0f) {
             w *= scale_pos_weight;
           }
@@ -108,15 +108,15 @@ class RegLossObj : public ObjFunction {
     return Loss::DefaultEvalMetric();
   }
 
-  void PredTransform(HostDeviceVector<float> *io_preds) override {
+  void PredTransform(HostDeviceVector<double> *io_preds) override {
     common::Transform<>::Init(
-        [] XGBOOST_DEVICE(size_t _idx, common::Span<float> _preds) {
+        [] XGBOOST_DEVICE(size_t _idx, common::Span<double> _preds) {
           _preds[_idx] = Loss::PredTransform(_preds[_idx]);
         }, common::Range{0, static_cast<int64_t>(io_preds->Size())},
         devices_).Eval(io_preds);
   }
 
-  float ProbToMargin(float base_score) const override {
+  double ProbToMargin(double base_score) const override {
     return Loss::ProbToMargin(base_score);
   }
 
@@ -180,7 +180,7 @@ XGBOOST_REGISTER_OBJECTIVE(GPULogisticRaw, "gpu:binary:logitraw")
 
 // declare parameter
 struct PoissonRegressionParam : public dmlc::Parameter<PoissonRegressionParam> {
-  float max_delta_step;
+  double max_delta_step;
   int n_gpus;
   int gpu_id;
   DMLC_DECLARE_PARAMETER(PoissonRegressionParam) {
@@ -206,7 +206,7 @@ class PoissonRegression : public ObjFunction {
     label_correct_.Resize(devices_.IsEmpty() ? 1 : devices_.Size());
   }
 
-  void GetGradient(const HostDeviceVector<bst_float>& preds,
+  void GetGradient(const HostDeviceVector<bst_double>& preds,
                    const MetaInfo &info,
                    int iter,
                    HostDeviceVector<GradientPair> *out_gpair) override {
@@ -217,17 +217,17 @@ class PoissonRegression : public ObjFunction {
     label_correct_.Fill(1);
 
     bool is_null_weight = info.weights_.Size() == 0;
-    bst_float max_delta_step = param_.max_delta_step;
+    bst_double max_delta_step = param_.max_delta_step;
     common::Transform<>::Init(
         [=] XGBOOST_DEVICE(size_t _idx,
                            common::Span<int> _label_correct,
                            common::Span<GradientPair> _out_gpair,
-                           common::Span<const bst_float> _preds,
-                           common::Span<const bst_float> _labels,
-                           common::Span<const bst_float> _weights) {
-          bst_float p = _preds[_idx];
-          bst_float w = is_null_weight ? 1.0f : _weights[_idx];
-          bst_float y = _labels[_idx];
+                           common::Span<const bst_double> _preds,
+                           common::Span<const bst_double> _labels,
+                           common::Span<const bst_double> _weights) {
+          bst_double p = _preds[_idx];
+          bst_double w = is_null_weight ? 1.0f : _weights[_idx];
+          bst_double y = _labels[_idx];
           if (y < 0.0f) {
             _label_correct[0] = 0;
           }
@@ -244,18 +244,18 @@ class PoissonRegression : public ObjFunction {
       }
     }
   }
-  void PredTransform(HostDeviceVector<bst_float> *io_preds) override {
+  void PredTransform(HostDeviceVector<bst_double> *io_preds) override {
     common::Transform<>::Init(
-        [] XGBOOST_DEVICE(size_t _idx, common::Span<bst_float> _preds) {
+        [] XGBOOST_DEVICE(size_t _idx, common::Span<bst_double> _preds) {
           _preds[_idx] = expf(_preds[_idx]);
         },
         common::Range{0, static_cast<int64_t>(io_preds->Size())}, devices_)
         .Eval(io_preds);
   }
-  void EvalTransform(HostDeviceVector<bst_float> *io_preds) override {
+  void EvalTransform(HostDeviceVector<bst_double> *io_preds) override {
     PredTransform(io_preds);
   }
-  bst_float ProbToMargin(bst_float base_score) const override {
+  bst_double ProbToMargin(bst_double base_score) const override {
     return std::log(base_score);
   }
   const char* DefaultEvalMetric() const override {
@@ -281,7 +281,7 @@ class CoxRegression : public ObjFunction {
  public:
   // declare functions
   void Configure(const std::vector<std::pair<std::string, std::string> >& args) override {}
-  void GetGradient(const HostDeviceVector<bst_float>& preds,
+  void GetGradient(const HostDeviceVector<bst_double>& preds,
                    const MetaInfo &info,
                    int iter,
                    HostDeviceVector<GradientPair> *out_gpair) override {
@@ -331,7 +331,7 @@ class CoxRegression : public ObjFunction {
         s_k += 1.0/(exp_p_sum*exp_p_sum);
       }
 
-      const double grad = exp_p*r_k - static_cast<bst_float>(y > 0);
+      const double grad = exp_p*r_k - static_cast<bst_double>(y > 0);
       const double hess = exp_p*r_k - exp_p*exp_p * s_k;
       gpair.at(ind) = GradientPair(grad * w, hess * w);
 
@@ -339,18 +339,18 @@ class CoxRegression : public ObjFunction {
       last_exp_p = exp_p;
     }
   }
-  void PredTransform(HostDeviceVector<bst_float> *io_preds) override {
-    std::vector<bst_float> &preds = io_preds->HostVector();
+  void PredTransform(HostDeviceVector<bst_double> *io_preds) override {
+    std::vector<bst_double> &preds = io_preds->HostVector();
     const long ndata = static_cast<long>(preds.size()); // NOLINT(*)
 #pragma omp parallel for schedule(static)
     for (long j = 0; j < ndata; ++j) {  // NOLINT(*)
       preds[j] = std::exp(preds[j]);
     }
   }
-  void EvalTransform(HostDeviceVector<bst_float> *io_preds) override {
+  void EvalTransform(HostDeviceVector<bst_double> *io_preds) override {
     PredTransform(io_preds);
   }
-  bst_float ProbToMargin(bst_float base_score) const override {
+  bst_double ProbToMargin(bst_double base_score) const override {
     return std::log(base_score);
   }
   const char* DefaultEvalMetric() const override {
@@ -387,7 +387,7 @@ class GammaRegression : public ObjFunction {
     label_correct_.Resize(devices_.IsEmpty() ? 1 : devices_.Size());
   }
 
-  void GetGradient(const HostDeviceVector<bst_float> &preds,
+  void GetGradient(const HostDeviceVector<bst_double> &preds,
                    const MetaInfo &info,
                    int iter,
                    HostDeviceVector<GradientPair> *out_gpair) override {
@@ -402,12 +402,12 @@ class GammaRegression : public ObjFunction {
         [=] XGBOOST_DEVICE(size_t _idx,
                            common::Span<int> _label_correct,
                            common::Span<GradientPair> _out_gpair,
-                           common::Span<const bst_float> _preds,
-                           common::Span<const bst_float> _labels,
-                           common::Span<const bst_float> _weights) {
-          bst_float p = _preds[_idx];
-          bst_float w = is_null_weight ? 1.0f : _weights[_idx];
-          bst_float y = _labels[_idx];
+                           common::Span<const bst_double> _preds,
+                           common::Span<const bst_double> _labels,
+                           common::Span<const bst_double> _weights) {
+          bst_double p = _preds[_idx];
+          bst_double w = is_null_weight ? 1.0f : _weights[_idx];
+          bst_double y = _labels[_idx];
           if (y < 0.0f) {
             _label_correct[0] = 0;
           }
@@ -424,18 +424,18 @@ class GammaRegression : public ObjFunction {
       }
     }
   }
-  void PredTransform(HostDeviceVector<bst_float> *io_preds) override {
+  void PredTransform(HostDeviceVector<bst_double> *io_preds) override {
     common::Transform<>::Init(
-        [] XGBOOST_DEVICE(size_t _idx, common::Span<bst_float> _preds) {
+        [] XGBOOST_DEVICE(size_t _idx, common::Span<bst_double> _preds) {
           _preds[_idx] = expf(_preds[_idx]);
         },
         common::Range{0, static_cast<int64_t>(io_preds->Size())}, devices_)
         .Eval(io_preds);
   }
-  void EvalTransform(HostDeviceVector<bst_float> *io_preds) override {
+  void EvalTransform(HostDeviceVector<bst_double> *io_preds) override {
     PredTransform(io_preds);
   }
-  bst_float ProbToMargin(bst_float base_score) const override {
+  bst_double ProbToMargin(bst_double base_score) const override {
     return std::log(base_score);
   }
   const char* DefaultEvalMetric() const override {
@@ -458,7 +458,7 @@ XGBOOST_REGISTER_OBJECTIVE(GammaRegression, "reg:gamma")
 
 // declare parameter
 struct TweedieRegressionParam : public dmlc::Parameter<TweedieRegressionParam> {
-  float tweedie_variance_power;
+  double tweedie_variance_power;
   int n_gpus;
   int gpu_id;
   DMLC_DECLARE_PARAMETER(TweedieRegressionParam) {
@@ -483,7 +483,7 @@ class TweedieRegression : public ObjFunction {
     label_correct_.Resize(devices_.IsEmpty() ? 1 : devices_.Size());
   }
 
-  void GetGradient(const HostDeviceVector<bst_float>& preds,
+  void GetGradient(const HostDeviceVector<bst_double>& preds,
                    const MetaInfo &info,
                    int iter,
                    HostDeviceVector<GradientPair> *out_gpair) override {
@@ -494,22 +494,22 @@ class TweedieRegression : public ObjFunction {
     label_correct_.Fill(1);
 
     const bool is_null_weight = info.weights_.Size() == 0;
-    const float rho = param_.tweedie_variance_power;
+    const double rho = param_.tweedie_variance_power;
     common::Transform<>::Init(
         [=] XGBOOST_DEVICE(size_t _idx,
                            common::Span<int> _label_correct,
                            common::Span<GradientPair> _out_gpair,
-                           common::Span<const bst_float> _preds,
-                           common::Span<const bst_float> _labels,
-                           common::Span<const bst_float> _weights) {
-          bst_float p = _preds[_idx];
-          bst_float w = is_null_weight ? 1.0f : _weights[_idx];
-          bst_float y = _labels[_idx];
+                           common::Span<const bst_double> _preds,
+                           common::Span<const bst_double> _labels,
+                           common::Span<const bst_double> _weights) {
+          bst_double p = _preds[_idx];
+          bst_double w = is_null_weight ? 1.0f : _weights[_idx];
+          bst_double y = _labels[_idx];
           if (y < 0.0f) {
             _label_correct[0] = 0;
           }
-          bst_float grad = -y * expf((1 - rho) * p) + expf((2 - rho) * p);
-          bst_float hess =
+          bst_double grad = -y * expf((1 - rho) * p) + expf((2 - rho) * p);
+          bst_double hess =
               -y * (1 - rho) * \
               std::exp((1 - rho) * p) + (2 - rho) * expf((2 - rho) * p);
           _out_gpair[_idx] = GradientPair(grad * w, hess * w);
@@ -525,16 +525,16 @@ class TweedieRegression : public ObjFunction {
       }
     }
   }
-  void PredTransform(HostDeviceVector<bst_float> *io_preds) override {
+  void PredTransform(HostDeviceVector<bst_double> *io_preds) override {
     common::Transform<>::Init(
-        [] XGBOOST_DEVICE(size_t _idx, common::Span<bst_float> _preds) {
+        [] XGBOOST_DEVICE(size_t _idx, common::Span<bst_double> _preds) {
           _preds[_idx] = expf(_preds[_idx]);
         },
         common::Range{0, static_cast<int64_t>(io_preds->Size())}, devices_)
         .Eval(io_preds);
   }
 
-  bst_float ProbToMargin(bst_float base_score) const override {
+  bst_double ProbToMargin(bst_double base_score) const override {
     return std::log(base_score);
   }
 

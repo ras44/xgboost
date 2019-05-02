@@ -34,21 +34,21 @@ class ElementWiseMetricsReduction {
     policy_(std::move(policy)) {}
 
   PackedReduceResult CpuReduceMetrics(
-      const HostDeviceVector<bst_float>& weights,
-      const HostDeviceVector<bst_float>& labels,
-      const HostDeviceVector<bst_float>& preds) const {
+      const HostDeviceVector<bst_double>& weights,
+      const HostDeviceVector<bst_double>& labels,
+      const HostDeviceVector<bst_double>& preds) const {
     size_t ndata = labels.Size();
 
     const auto& h_labels = labels.HostVector();
     const auto& h_weights = weights.HostVector();
     const auto& h_preds = preds.HostVector();
 
-    bst_float residue_sum = 0;
-    bst_float weights_sum = 0;
+    bst_double residue_sum = 0;
+    bst_double weights_sum = 0;
 
 #pragma omp parallel for reduction(+: residue_sum, weights_sum) schedule(static)
     for (omp_ulong i = 0; i < ndata; ++i) {
-      const bst_float wt = h_weights.size() > 0 ? h_weights[i] : 1.0f;
+      const bst_double wt = h_weights.size() > 0 ? h_weights[i] : 1.0f;
       residue_sum += policy_.EvalRow(h_labels[i], h_preds[i]) * wt;
       weights_sum += wt;
     }
@@ -61,9 +61,9 @@ class ElementWiseMetricsReduction {
   PackedReduceResult DeviceReduceMetrics(
       GPUSet::GpuIdType device_id,
       size_t device_index,
-      const HostDeviceVector<bst_float>& weights,
-      const HostDeviceVector<bst_float>& labels,
-      const HostDeviceVector<bst_float>& preds) {
+      const HostDeviceVector<bst_double>& weights,
+      const HostDeviceVector<bst_double>& labels,
+      const HostDeviceVector<bst_double>& preds) {
     size_t n_data = preds.DeviceSize(device_id);
 
     thrust::counting_iterator<size_t> begin(0);
@@ -81,9 +81,9 @@ class ElementWiseMetricsReduction {
         thrust::cuda::par(allocators_.at(device_index)),
         begin, end,
         [=] XGBOOST_DEVICE(size_t idx) {
-          bst_float weight = is_null_weight ? 1.0f : s_weights[idx];
+          bst_double weight = is_null_weight ? 1.0f : s_weights[idx];
 
-          bst_float residue = d_policy.EvalRow(s_label[idx], s_preds[idx]);
+          bst_double residue = d_policy.EvalRow(s_label[idx], s_preds[idx]);
           residue *= weight;
           return PackedReduceResult{ residue, weight };
         },
@@ -97,9 +97,9 @@ class ElementWiseMetricsReduction {
 
   PackedReduceResult Reduce(
       GPUSet devices,
-      const HostDeviceVector<bst_float>& weights,
-      const HostDeviceVector<bst_float>& labels,
-      const HostDeviceVector<bst_float>& preds) {
+      const HostDeviceVector<bst_double>& weights,
+      const HostDeviceVector<bst_double>& labels,
+      const HostDeviceVector<bst_double>& preds) {
     PackedReduceResult result;
 
     if (devices.IsEmpty()) {
@@ -144,11 +144,11 @@ struct EvalRowRMSE {
     return "rmse";
   }
 
-  XGBOOST_DEVICE bst_float EvalRow(bst_float label, bst_float pred) const {
-    bst_float diff = label - pred;
+  XGBOOST_DEVICE bst_double EvalRow(bst_double label, bst_double pred) const {
+    bst_double diff = label - pred;
     return diff * diff;
   }
-  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+  static bst_double GetFinal(bst_double esum, bst_double wsum) {
     return std::sqrt(esum / wsum);
   }
 };
@@ -158,10 +158,10 @@ struct EvalRowMAE {
     return "mae";
   }
 
-  XGBOOST_DEVICE bst_float EvalRow(bst_float label, bst_float pred) const {
+  XGBOOST_DEVICE bst_double EvalRow(bst_double label, bst_double pred) const {
     return std::abs(label - pred);
   }
-  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+  static bst_double GetFinal(bst_double esum, bst_double wsum) {
     return esum / wsum;
   }
 };
@@ -171,9 +171,9 @@ struct EvalRowLogLoss {
     return "logloss";
   }
 
-  XGBOOST_DEVICE bst_float EvalRow(bst_float y, bst_float py) const {
-    const bst_float eps = 1e-16f;
-    const bst_float pneg = 1.0f - py;
+  XGBOOST_DEVICE bst_double EvalRow(bst_double y, bst_double py) const {
+    const bst_double eps = 1e-16f;
+    const bst_double pneg = 1.0f - py;
     if (py < eps) {
       return -y * std::log(eps) - (1.0f - y)  * std::log(1.0f - eps);
     } else if (pneg < eps) {
@@ -183,7 +183,7 @@ struct EvalRowLogLoss {
     }
   }
 
-  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+  static bst_double GetFinal(bst_double esum, bst_double wsum) {
     return esum / wsum;
   }
 };
@@ -212,18 +212,18 @@ struct EvalError {
     }
   }
 
-  XGBOOST_DEVICE bst_float EvalRow(
-      bst_float label, bst_float pred) const {
+  XGBOOST_DEVICE bst_double EvalRow(
+      bst_double label, bst_double pred) const {
     // assume label is in [0,1]
     return pred > threshold_ ? 1.0f - label : label;
   }
 
-  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+  static bst_double GetFinal(bst_double esum, bst_double wsum) {
     return esum / wsum;
   }
 
  private:
-  bst_float threshold_;
+  bst_double threshold_;
   bool has_param_;
 };
 
@@ -232,13 +232,13 @@ struct EvalPoissonNegLogLik {
     return "poisson-nloglik";
   }
 
-  XGBOOST_DEVICE bst_float EvalRow(bst_float y, bst_float py) const {
-    const bst_float eps = 1e-16f;
+  XGBOOST_DEVICE bst_double EvalRow(bst_double y, bst_double py) const {
+    const bst_double eps = 1e-16f;
     if (py < eps) py = eps;
     return common::LogGamma(y + 1.0f) + py - std::log(py) * y;
   }
 
-  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+  static bst_double GetFinal(bst_double esum, bst_double wsum) {
     return esum / wsum;
   }
 };
@@ -248,12 +248,12 @@ struct EvalGammaDeviance {
     return "gamma-deviance";
   }
 
-  XGBOOST_DEVICE bst_float EvalRow(bst_float label, bst_float pred) const {
-    bst_float epsilon = 1.0e-9;
-    bst_float tmp = label / (pred + epsilon);
+  XGBOOST_DEVICE bst_double EvalRow(bst_double label, bst_double pred) const {
+    bst_double epsilon = 1.0e-9;
+    bst_double tmp = label / (pred + epsilon);
     return tmp - std::log(tmp) - 1;
   }
-  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+  static bst_double GetFinal(bst_double esum, bst_double wsum) {
     return 2 * esum;
   }
 };
@@ -263,15 +263,15 @@ struct EvalGammaNLogLik {
     return "gamma-nloglik";
   }
 
-  XGBOOST_DEVICE bst_float EvalRow(bst_float y, bst_float py) const {
-    bst_float psi = 1.0;
-    bst_float theta = -1. / py;
-    bst_float a = psi;
-    bst_float b = -std::log(-theta);
-    bst_float c = 1. / psi * std::log(y/psi) - std::log(y) - common::LogGamma(1. / psi);
+  XGBOOST_DEVICE bst_double EvalRow(bst_double y, bst_double py) const {
+    bst_double psi = 1.0;
+    bst_double theta = -1. / py;
+    bst_double a = psi;
+    bst_double b = -std::log(-theta);
+    bst_double c = 1. / psi * std::log(y/psi) - std::log(y) - common::LogGamma(1. / psi);
     return -((y * theta - b) / a + c);
   }
-  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+  static bst_double GetFinal(bst_double esum, bst_double wsum) {
     return esum / wsum;
   }
 };
@@ -292,17 +292,17 @@ struct EvalTweedieNLogLik {
     return name.c_str();
   }
 
-  XGBOOST_DEVICE bst_float EvalRow(bst_float y, bst_float p) const {
-    bst_float a = y * std::exp((1 - rho_) * std::log(p)) / (1 - rho_);
-    bst_float b = std::exp((2 - rho_) * std::log(p)) / (2 - rho_);
+  XGBOOST_DEVICE bst_double EvalRow(bst_double y, bst_double p) const {
+    bst_double a = y * std::exp((1 - rho_) * std::log(p)) / (1 - rho_);
+    bst_double b = std::exp((2 - rho_) * std::log(p)) / (2 - rho_);
     return -a + b;
   }
-  static bst_float GetFinal(bst_float esum, bst_float wsum) {
+  static bst_double GetFinal(bst_double esum, bst_double wsum) {
     return esum / wsum;
   }
 
  protected:
-  bst_float rho_;
+  bst_double rho_;
 };
 /*!
  * \brief base class of element-wise evaluation
@@ -319,7 +319,7 @@ struct EvalEWiseBase : public Metric {
     param_.InitAllowUnknown(args);
   }
 
-  bst_float Eval(const HostDeviceVector<bst_float>& preds,
+  bst_double Eval(const HostDeviceVector<bst_double>& preds,
                  const MetaInfo& info,
                  bool distributed) override {
     CHECK_NE(info.labels_.Size(), 0U) << "label set cannot be empty";

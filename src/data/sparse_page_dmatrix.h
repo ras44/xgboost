@@ -35,7 +35,7 @@ class SparsePageDMatrix : public DMatrix {
 
   BatchSet GetColumnBatches() override;
 
-  float GetColDensity(size_t cidx) override;
+  double GetColDensity(size_t cidx) override;
 
   bool SingleColBlock() const override;
 
@@ -47,7 +47,7 @@ class SparsePageDMatrix : public DMatrix {
   // the cache prefix
   std::string cache_info_;
   // Store column densities to avoid recalculating
-  std::vector<float> col_density_;
+  std::vector<double> col_density_;
 };
 }  // namespace data
 }  // namespace xgboost

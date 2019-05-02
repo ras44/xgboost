@@ -41,7 +41,7 @@ class CoordinateUpdater : public LinearUpdater {
     for (int group_idx = 0; group_idx < ngroup; ++group_idx) {
       auto grad = GetBiasGradientParallel(group_idx, ngroup,
                                           in_gpair->ConstHostVector(), p_fmat);
-      auto dbias = static_cast<float>(tparam_.learning_rate *
+      auto dbias = static_cast<double>(tparam_.learning_rate *
                                       CoordinateDeltaBias(grad.first, grad.second));
       model->bias()[group_idx] += dbias;
       UpdateBiasResidualParallel(group_idx, ngroup,
@@ -67,10 +67,10 @@ class CoordinateUpdater : public LinearUpdater {
   inline void UpdateFeature(int fidx, int group_idx, std::vector<GradientPair> *in_gpair,
                             DMatrix *p_fmat, gbm::GBLinearModel *model) {
     const int ngroup = model->param.num_output_group;
-    bst_float &w = (*model)[fidx][group_idx];
+    bst_double &w = (*model)[fidx][group_idx];
     auto gradient =
         GetGradientParallel(group_idx, ngroup, fidx, *in_gpair, p_fmat);
-    auto dw = static_cast<float>(
+    auto dw = static_cast<double>(
         tparam_.learning_rate *
         CoordinateDelta(gradient.first, gradient.second, w, tparam_.reg_alpha_denorm,
                         tparam_.reg_lambda_denorm));

@@ -43,7 +43,7 @@ class BaseMaker: public TreeUpdater {
                           const RegTree& tree) {
       fminmax_.resize(tree.param.num_feature * 2);
       std::fill(fminmax_.begin(), fminmax_.end(),
-                -std::numeric_limits<bst_float>::max());
+                -std::numeric_limits<bst_double>::max());
       // start accumulating statistics
       for (const auto &batch : p_fmat->GetSortedColumnBatches()) {
         for (bst_uint fid = 0; fid < batch.Size(); ++fid) {
@@ -66,19 +66,19 @@ class BaseMaker: public TreeUpdater {
     inline int Type(bst_uint fid) const {
       CHECK_LT(fid * 2 + 1, fminmax_.size())
           << "FeatHelper fid exceed query bound ";
-      bst_float a = fminmax_[fid * 2];
-      bst_float b = fminmax_[fid * 2 + 1];
-      if (a == -std::numeric_limits<bst_float>::max()) return 0;
+      bst_double a = fminmax_[fid * 2];
+      bst_double b = fminmax_[fid * 2 + 1];
+      if (a == -std::numeric_limits<bst_double>::max()) return 0;
       if (-a == b) {
         return 1;
       } else {
         return 2;
       }
     }
-    inline bst_float MaxValue(bst_uint fid) const {
+    inline bst_double MaxValue(bst_uint fid) const {
       return fminmax_[fid *2 + 1];
     }
-    inline void SampleCol(float p, std::vector<bst_uint> *p_findex) const {
+    inline void SampleCol(double p, std::vector<bst_uint> *p_findex) const {
       std::vector<bst_uint> &findex = *p_findex;
       findex.clear();
       for (size_t i = 0; i < fminmax_.size(); i += 2) {
@@ -100,7 +100,7 @@ class BaseMaker: public TreeUpdater {
     }
 
    private:
-    std::vector<bst_float> fminmax_;
+    std::vector<bst_double> fminmax_;
   };
   // ------static helper functions ------
   // helper function to get to next level of the tree
@@ -253,7 +253,7 @@ class BaseMaker: public TreeUpdater {
         #pragma omp parallel for schedule(static)
         for (bst_omp_uint j = 0; j < ndata; ++j) {
           const bst_uint ridx = col[j].index;
-          const bst_float fvalue = col[j].fvalue;
+          const bst_double fvalue = col[j].fvalue;
           const int nid = this->DecodePosition(ridx);
           CHECK(tree[nid].IsLeaf());
           int pid = tree[nid].Parent();
@@ -309,7 +309,7 @@ class BaseMaker: public TreeUpdater {
         #pragma omp parallel for schedule(static)
         for (bst_omp_uint j = 0; j < ndata; ++j) {
           const bst_uint ridx = col[j].index;
-          const bst_float fvalue = col[j].fvalue;
+          const bst_double fvalue = col[j].fvalue;
           const int nid = this->DecodePosition(ridx);
           // go back to parent, correct those who are not default
           if (!tree[nid].IsLeaf() && tree[nid].SplitIndex() == fid) {
@@ -367,11 +367,11 @@ class BaseMaker: public TreeUpdater {
     /*! \brief statistics used in the sketch */
     double rmin, wmin;
     /*! \brief last seen feature value */
-    bst_float last_fvalue;
+    bst_double last_fvalue;
     /*! \brief current size of sketch */
     double next_goal;
     // pointer to the sketch to put things in
-    common::WXQuantileSketch<bst_float, bst_float> *sketch;
+    common::WXQuantileSketch<bst_double, bst_double> *sketch;
     // initialize the space
     inline void Init(unsigned max_size) {
       next_goal = -1.0f;
@@ -385,7 +385,7 @@ class BaseMaker: public TreeUpdater {
      * \param w weight
      * \param max_size
      */
-    inline void Push(bst_float fvalue, bst_float w, unsigned max_size) {
+    inline void Push(bst_double fvalue, bst_double w, unsigned max_size) {
       if (next_goal == -1.0f) {
         next_goal = 0.0f;
         last_fvalue = fvalue;
@@ -399,10 +399,10 @@ class BaseMaker: public TreeUpdater {
               last_fvalue > sketch->temp.data[sketch->temp.size-1].value) {
             // push to sketch
             sketch->temp.data[sketch->temp.size] =
-                common::WXQuantileSketch<bst_float, bst_float>::
-                Entry(static_cast<bst_float>(rmin),
-                      static_cast<bst_float>(rmax),
-                      static_cast<bst_float>(wmin), last_fvalue);
+                common::WXQuantileSketch<bst_double, bst_double>::
+                Entry(static_cast<bst_double>(rmin),
+                      static_cast<bst_double>(rmax),
+                      static_cast<bst_double>(wmin), last_fvalue);
             CHECK_LT(sketch->temp.size, max_size)
                 << "invalid maximum size max_size=" << max_size
                 << ", stemp.size" << sketch->temp.size;
@@ -411,7 +411,7 @@ class BaseMaker: public TreeUpdater {
           if (sketch->temp.size == max_size) {
             next_goal = sum_total * 2.0f + 1e-5f;
           } else {
-            next_goal = static_cast<bst_float>(sketch->temp.size * sum_total / max_size);
+            next_goal = static_cast<bst_double>(sketch->temp.size * sum_total / max_size);
           }
         } else {
           if (rmax >= next_goal) {
@@ -437,10 +437,10 @@ class BaseMaker: public TreeUpdater {
             << ", stemp.size=" << sketch->temp.size;
         // push to sketch
         sketch->temp.data[sketch->temp.size] =
-            common::WXQuantileSketch<bst_float, bst_float>::
-            Entry(static_cast<bst_float>(rmin),
-                  static_cast<bst_float>(rmax),
-                  static_cast<bst_float>(wmin), last_fvalue);
+            common::WXQuantileSketch<bst_double, bst_double>::
+            Entry(static_cast<bst_double>(rmin),
+                  static_cast<bst_double>(rmax),
+                  static_cast<bst_double>(wmin), last_fvalue);
         ++sketch->temp.size;
       }
       sketch->PushTemp();

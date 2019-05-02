@@ -143,7 +143,7 @@ DEV_INLINE void AtomicOrByte(unsigned int* __restrict__ buffer, size_t ibyte, un
  * \return the smallest index i such that v < cuts[i], or n if v is greater or equal
  *  than all elements of the array
 */
-DEV_INLINE int UpperBound(const float* __restrict__ cuts, int n, float v) {
+DEV_INLINE int UpperBound(const double* __restrict__ cuts, int n, double v) {
   if (n == 0)           { return 0; }
   if (cuts[n - 1] <= v) { return n; }
   if (cuts[0] > v)      { return 0; }
@@ -937,8 +937,8 @@ class AllReducer {
    * \param count                   Number of elements.
    */
 
-  void AllReduceSum(int communication_group_idx, const float *sendbuff,
-                    float *recvbuff, int count) {
+  void AllReduceSum(int communication_group_idx, const double *sendbuff,
+                    double *recvbuff, int count) {
 #ifdef XGBOOST_USE_NCCL
     CHECK(initialised_);
     dh::safe_cuda(cudaSetDevice(device_ordinals.at(communication_group_idx)));
@@ -947,7 +947,7 @@ class AllReducer {
                                 streams.at(communication_group_idx)));
     if(communication_group_idx == 0)
     {
-      allreduce_bytes_ += count * sizeof(float);
+      allreduce_bytes_ += count * sizeof(double);
       allreduce_calls_ += 1;
     }
 #endif

@@ -42,33 +42,33 @@ class SplitEvaluator {
   virtual SplitEvaluator* GetHostClone() const = 0;
 
   // Computes the score (negative loss) resulting from performing this split
-  virtual bst_float ComputeSplitScore(bst_uint nodeid,
+  virtual bst_double ComputeSplitScore(bst_uint nodeid,
                                       bst_uint featureid,
                                       const GradStats& left_stats,
                                       const GradStats& right_stats,
-                                      bst_float left_weight,
-                                      bst_float right_weight) const = 0;
+                                      bst_double left_weight,
+                                      bst_double right_weight) const = 0;
 
-  virtual bst_float ComputeSplitScore(bst_uint nodeid,
+  virtual bst_double ComputeSplitScore(bst_uint nodeid,
                                       bst_uint featureid,
                                       const GradStats& left_stats,
                                       const GradStats& right_stats) const;
 
   // Compute the Score for a node with the given stats
-  virtual bst_float ComputeScore(bst_uint parentid,
+  virtual bst_double ComputeScore(bst_uint parentid,
                                 const GradStats &stats,
-                                bst_float weight) const = 0;
+                                bst_double weight) const = 0;
 
   // Compute the weight for a node with the given stats
-  virtual bst_float ComputeWeight(bst_uint parentid, const GradStats& stats)
+  virtual bst_double ComputeWeight(bst_uint parentid, const GradStats& stats)
       const = 0;
 
   virtual void AddSplit(bst_uint nodeid,
                         bst_uint leftid,
                         bst_uint rightid,
                         bst_uint featureid,
-                        bst_float leftweight,
-                        bst_float rightweight);
+                        bst_double leftweight,
+                        bst_double rightweight);
 
   // Check whether a given feature is feasible for a given node.
   // Use this function to narrow the search space for split candidates

@@ -26,7 +26,7 @@ class SketchMaker: public BaseMaker {
               DMatrix *p_fmat,
               const std::vector<RegTree*> &trees) override {
     // rescale learning rate according to size of trees
-    float lr = param_.learning_rate;
+    double lr = param_.learning_rate;
     param_.learning_rate = lr / trees.size();
     // build tree
     for (auto tree : trees) {
@@ -60,7 +60,7 @@ class SketchMaker: public BaseMaker {
     for (int nid = 0; nid < p_tree->param.num_nodes; ++nid) {
       this->SetStats(nid, node_stats_[nid], p_tree);
       if (!(*p_tree)[nid].IsLeaf()) {
-        p_tree->Stat(nid).loss_chg = static_cast<bst_float>(
+        p_tree->Stat(nid).loss_chg = static_cast<bst_double>(
             node_stats_[(*p_tree)[nid].LeftChild()].CalcGain(param_) +
             node_stats_[(*p_tree)[nid].RightChild()].CalcGain(param_) -
             node_stats_[nid].CalcGain(param_));
@@ -72,7 +72,7 @@ class SketchMaker: public BaseMaker {
     }
   }
   // define the sketch we want to use
-  using WXQSketch = common::WXQuantileSketch<bst_float, bst_float>;
+  using WXQSketch = common::WXQuantileSketch<bst_double, bst_double>;
 
  private:
   // statistics needed in the gradient calculation
@@ -149,7 +149,7 @@ class SketchMaker: public BaseMaker {
     // synchronize sketch
     summary_array_.resize(sketchs_.size());
     for (size_t i = 0; i < sketchs_.size(); ++i) {
-      common::WXQuantileSketch<bst_float, bst_float>::SummaryContainer out;
+      common::WXQuantileSketch<bst_double, bst_double>::SummaryContainer out;
       sketchs_[i].GetSummary(&out);
       summary_array_[i].Reserve(max_size);
       summary_array_[i].SetPrune(out, max_size);
@@ -192,9 +192,9 @@ class SketchMaker: public BaseMaker {
       }
     } else {
       for (unsigned int nid : this->qexpand_) {
-        sbuilder[3 * nid + 0].sum_total = static_cast<bst_float>(nstats[nid].pos_grad);
-        sbuilder[3 * nid + 1].sum_total = static_cast<bst_float>(nstats[nid].neg_grad);
-        sbuilder[3 * nid + 2].sum_total = static_cast<bst_float>(nstats[nid].sum_hess);
+        sbuilder[3 * nid + 0].sum_total = static_cast<bst_double>(nstats[nid].pos_grad);
+        sbuilder[3 * nid + 1].sum_total = static_cast<bst_double>(nstats[nid].neg_grad);
+        sbuilder[3 * nid + 2].sum_total = static_cast<bst_double>(nstats[nid].sum_hess);
       }
     }
     // if only one value, no need to do second pass
@@ -202,7 +202,7 @@ class SketchMaker: public BaseMaker {
       for (int nid : this->qexpand_) {
         for (int k = 0; k < 3; ++k) {
           sbuilder[3 * nid + k].sketch->Push(col[0].fvalue,
-                                             static_cast<bst_float>(
+                                             static_cast<bst_double>(
                                                  sbuilder[3 * nid + k].sum_total));
         }
       }
@@ -275,11 +275,11 @@ class SketchMaker: public BaseMaker {
       this->SetStats(nid, node_stats_[nid], p_tree);
       // now we know the solution in snode[nid], set split
       if (best.loss_chg > kRtEps) {
-        bst_float base_weight = node_stats_[nid].CalcWeight(param_);
-        bst_float left_leaf_weight =
+        bst_double base_weight = node_stats_[nid].CalcWeight(param_);
+        bst_double left_leaf_weight =
             CalcWeight(param_, best.left_sum.sum_grad, best.left_sum.sum_hess) *
             param_.learning_rate;
-        bst_float right_leaf_weight =
+        bst_double right_leaf_weight =
             CalcWeight(param_, best.right_sum.sum_grad,
                        best.right_sum.sum_hess) *
             param_.learning_rate;
@@ -294,8 +294,8 @@ class SketchMaker: public BaseMaker {
   }
   // set statistics on ptree
   inline void SetStats(int nid, const SKStats &node_sum, RegTree *p_tree) {
-    p_tree->Stat(nid).base_weight = static_cast<bst_float>(node_sum.CalcWeight(param_));
-    p_tree->Stat(nid).sum_hess = static_cast<bst_float>(node_sum.sum_hess);
+    p_tree->Stat(nid).base_weight = static_cast<bst_double>(node_sum.CalcWeight(param_));
+    p_tree->Stat(nid).sum_hess = static_cast<bst_double>(node_sum.sum_hess);
   }
   inline void EnumerateSplit(const WXQSketch::Summary &pos_grad,
                              const WXQSketch::Summary &neg_grad,
@@ -305,7 +305,7 @@ class SketchMaker: public BaseMaker {
                              SplitEntry *best) {
     if (sum_hess.size == 0) return;
     double root_gain = node_sum.CalcGain(param_);
-    std::vector<bst_float> fsplits;
+    std::vector<bst_double> fsplits;
     for (size_t i = 0; i < pos_grad.size; ++i) {
       fsplits.push_back(pos_grad.data[i].value);
     }
@@ -336,7 +336,7 @@ class SketchMaker: public BaseMaker {
       if (s.sum_hess >= param_.min_child_weight &&
           c.sum_hess >= param_.min_child_weight) {
         double loss_chg = s.CalcGain(param_) + c.CalcGain(param_) - root_gain;
-        best->Update(static_cast<bst_float>(loss_chg), fid, fsplits[i], false,
+        best->Update(static_cast<bst_double>(loss_chg), fid, fsplits[i], false,
                      GradStats(s.pos_grad - s.neg_grad , s.sum_hess),
                      GradStats(c.pos_grad - c.neg_grad, c.sum_hess));
       }
@@ -346,7 +346,7 @@ class SketchMaker: public BaseMaker {
       if (s.sum_hess >= param_.min_child_weight &&
           c.sum_hess >= param_.min_child_weight) {
         double loss_chg = s.CalcGain(param_) + c.CalcGain(param_) - root_gain;
-        best->Update(static_cast<bst_float>(loss_chg), fid, fsplits[i], true,
+        best->Update(static_cast<bst_double>(loss_chg), fid, fsplits[i], true,
                      GradStats(s.pos_grad - s.neg_grad, s.sum_hess),
                      GradStats(c.pos_grad - c.neg_grad, c.sum_hess));
       }
@@ -357,9 +357,9 @@ class SketchMaker: public BaseMaker {
       c.SetSubstract(node_sum, s);
       if (s.sum_hess >= param_.min_child_weight &&
           c.sum_hess >= param_.min_child_weight) {
-        bst_float cpt = fsplits.back();
+        bst_double cpt = fsplits.back();
         double loss_chg = s.CalcGain(param_) + c.CalcGain(param_) - root_gain;
-        best->Update(static_cast<bst_float>(loss_chg), fid,
+        best->Update(static_cast<bst_double>(loss_chg), fid,
                      cpt + std::abs(cpt) + 1.0f, false,
                      GradStats(s.pos_grad - s.neg_grad, s.sum_hess),
                      GradStats(c.pos_grad - c.neg_grad, c.sum_hess));
@@ -381,7 +381,7 @@ class SketchMaker: public BaseMaker {
   // reducer for summary
   rabit::SerializeReducer<WXQSketch::SummaryContainer> sketch_reducer_;
   // per node, per feature sketch
-  std::vector<common::WXQuantileSketch<bst_float, bst_float> > sketchs_;
+  std::vector<common::WXQuantileSketch<bst_double, bst_double> > sketchs_;
 };
 
 XGBOOST_REGISTER_TREE_UPDATER(SketchMaker, "grow_skmaker")

@@ -172,7 +172,7 @@ struct WQSummary {
   /*!
    * \brief debug function, validate whether the summary
    *  run consistency check to check if it is a valid summary
-   * \param eps the tolerate error level, used when RType is floating point and
+   * \param eps the tolerate error level, used when RType is binary64 and
    *        some inconsistency could occur due to rounding error
    */
   inline void CheckValid(RType eps) const {
@@ -328,7 +328,7 @@ struct WQSummary {
   }
   // check consistency of the summary
   inline bool Check(const char *msg) const {
-    const float tol = 10.0f;
+    const double tol = 10.0f;
     for (size_t i = 0; i < this->size; ++i) {
       if (data[i].rmin + data[i].wmin > data[i].rmax + tol ||
           data[i].rmin < -1e-6f || data[i].rmax < -1e-6f) {

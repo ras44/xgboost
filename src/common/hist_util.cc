@@ -106,7 +106,7 @@ void HistCutMatrix::Init(DMatrix* p_fmat, uint32_t max_num_bins) {
       const size_t block_size_iter = block_size * nthread;
       const size_t n_blocks = size / block_size_iter + !!(size % block_size_iter);
 
-      std::vector<std::vector<std::pair<float, float>>> buff(nthread);
+      std::vector<std::vector<std::pair<double, double>>> buff(nthread);
       for (size_t tid = 0; tid < nthread; ++tid) {
         buff[tid].resize(block_size * ncol);
       }
@@ -126,7 +126,7 @@ void HistCutMatrix::Init(DMatrix* p_fmat, uint32_t max_num_bins) {
 
           for (size_t i = ibegin; i < iend; ++i) {
             size_t const ridx = batch.base_rowid + i;
-            bst_float w = info.GetWeight(ridx);
+            bst_double w = info.GetWeight(ridx);
             SparsePage::Inst const inst = batch[i];
 
             for (auto const& entry : inst) {
@@ -181,29 +181,29 @@ void HistCutMatrix::Init
     WXQSketch::SummaryContainer a;
     a.Reserve(max_num_bins);
     a.SetPrune(summary_array[fid], max_num_bins);
-    const bst_float mval = a.data[0].value;
+    const bst_double mval = a.data[0].value;
     this->min_val[fid] = mval - (fabs(mval) + 1e-5);
     if (a.size > 1 && a.size <= 16) {
       /* specialized code categorial / ordinal data -- use midpoints */
       for (size_t i = 1; i < a.size; ++i) {
-        bst_float cpt = (a.data[i].value + a.data[i - 1].value) / 2.0f;
+        bst_double cpt = (a.data[i].value + a.data[i - 1].value) / 2.0f;
         if (i == 1 || cpt > cut.back()) {
           cut.push_back(cpt);
         }
       }
     } else {
       for (size_t i = 2; i < a.size; ++i) {
-        bst_float cpt = a.data[i - 1].value;
+        bst_double cpt = a.data[i - 1].value;
         if (i == 2 || cpt > cut.back()) {
           cut.push_back(cpt);
         }
       }
     }
     // push a value that is greater than anything
-    const bst_float cpt
+    const bst_double cpt
       = (a.size > 0) ? a.data[a.size - 1].value : this->min_val[fid];
     // this must be bigger than last value in a scale
-    const bst_float last = cpt + (fabs(cpt) + 1e-5);
+    const bst_double last = cpt + (fabs(cpt) + 1e-5);
     cut.push_back(last);
 
     // Ensure that every feature gets at least one quantile point
@@ -556,7 +556,7 @@ void GHistBuilder::BuildHist(const std::vector<GradientPair>& gpair,
   const size_t nrows = row_indices.Size();
   const uint32_t* index = gmat.index.data();
   const size_t* row_ptr =  gmat.row_ptr.data();
-  const float* pgh = reinterpret_cast<const float*>(gpair.data());
+  const double* pgh = reinterpret_cast<const double*>(gpair.data());
 
   double* hist_data = reinterpret_cast<double*>(hist.data());
   double* data = reinterpret_cast<double*>(data_.data());

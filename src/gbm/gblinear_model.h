@@ -38,7 +38,7 @@ class GBLinearModel {
   // parameter
   GBLinearModelParam param;
   // weight for each of feature, bias is the last one
-  std::vector<bst_float> weight;
+  std::vector<bst_double> weight;
   // initialize the model parameter
   inline void LazyInitModel() {
     if (!weight.empty()) return;
@@ -57,17 +57,17 @@ class GBLinearModel {
     fi->Read(&weight);
   }
   // model bias
-  inline bst_float* bias() {
+  inline bst_double* bias() {
     return &weight[param.num_feature * param.num_output_group];
   }
-  inline const bst_float* bias() const {
+  inline const bst_double* bias() const {
     return &weight[param.num_feature * param.num_output_group];
   }
   // get i-th weight
-  inline bst_float* operator[](size_t i) {
+  inline bst_double* operator[](size_t i) {
     return &weight[i * param.num_output_group];
   }
-  inline const bst_float* operator[](size_t i) const {
+  inline const bst_double* operator[](size_t i) const {
     return &weight[i * param.num_output_group];
   }
 

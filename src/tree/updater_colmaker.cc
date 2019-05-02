@@ -34,7 +34,7 @@ class ColMaker: public TreeUpdater {
               DMatrix* dmat,
               const std::vector<RegTree*> &trees) override {
     // rescale learning rate according to size of trees
-    float lr = param_.learning_rate;
+    double lr = param_.learning_rate;
     param_.learning_rate = lr / trees.size();
     // build tree
     for (auto tree : trees) {
@@ -59,9 +59,9 @@ class ColMaker: public TreeUpdater {
     /*! \brief extra statistics of data */
     GradStats stats_extra;
     /*! \brief last feature value scanned */
-    bst_float last_fvalue;
+    bst_double last_fvalue;
     /*! \brief first feature value scanned */
-    bst_float first_fvalue;
+    bst_double first_fvalue;
     /*! \brief current best solution */
     SplitEntry best;
     // constructor
@@ -71,9 +71,9 @@ class ColMaker: public TreeUpdater {
     /*! \brief statics for node entry */
     GradStats stats;
     /*! \brief loss of this node, without split */
-    bst_float root_gain;
+    bst_double root_gain;
     /*! \brief weight calculated related to current data */
-    bst_float weight;
+    bst_double weight;
     /*! \brief current best solution */
     SplitEntry best;
     // constructor
@@ -124,7 +124,7 @@ class ColMaker: public TreeUpdater {
       for (int nid = 0; nid < p_tree->param.num_nodes; ++nid) {
         p_tree->Stat(nid).loss_chg = snode_[nid].best.loss_chg;
         p_tree->Stat(nid).base_weight = snode_[nid].weight;
-        p_tree->Stat(nid).sum_hess = static_cast<float>(snode_[nid].stats.sum_hess);
+        p_tree->Stat(nid).sum_hess = static_cast<double>(snode_[nid].stats.sum_hess);
       }
     }
 
@@ -220,9 +220,9 @@ class ColMaker: public TreeUpdater {
       // calculating the weights
       for (int nid : qexpand) {
         bst_uint parentid = tree[nid].Parent();
-        snode_[nid].weight = static_cast<float>(
+        snode_[nid].weight = static_cast<double>(
             spliteval_->ComputeWeight(parentid, snode_[nid].stats));
-        snode_[nid].root_gain = static_cast<float>(
+        snode_[nid].root_gain = static_cast<double>(
             spliteval_->ComputeScore(parentid, snode_[nid].stats, snode_[nid].weight));
       }
     }
@@ -263,7 +263,7 @@ class ColMaker: public TreeUpdater {
           const bst_uint ridx = col[i].index;
           const int nid = position_[ridx];
           if (nid < 0) continue;
-          const bst_float fvalue = col[i].fvalue;
+          const bst_double fvalue = col[i].fvalue;
           if (temp[nid].stats.Empty()) {
             temp[nid].first_fvalue = fvalue;
           }
@@ -288,7 +288,7 @@ class ColMaker: public TreeUpdater {
         for (int tid = 0; tid < this->nthread_; ++tid) {
           stemp_[tid][nid].stats_extra = sum;
           ThreadEntry &e = stemp_[tid][nid];
-          bst_float fsplit;
+          bst_double fsplit;
           if (tid != 0) {
             if (stemp_[tid - 1][nid].last_fvalue != e.first_fvalue) {
               fsplit = (stemp_[tid - 1][nid].last_fvalue + e.first_fvalue) * 0.5f;
@@ -302,7 +302,7 @@ class ColMaker: public TreeUpdater {
             c.SetSubstract(snode_[nid].stats, e.stats);
             if (c.sum_hess >= param_.min_child_weight &&
                 e.stats.sum_hess >= param_.min_child_weight) {
-              auto loss_chg = static_cast<bst_float>(
+              auto loss_chg = static_cast<bst_double>(
                   spliteval_->ComputeSplitScore(nid, fid, e.stats, c) -
                   snode_[nid].root_gain);
               e.best.Update(loss_chg, fid, fsplit, false, e.stats, c);
@@ -313,7 +313,7 @@ class ColMaker: public TreeUpdater {
             c.SetSubstract(snode_[nid].stats, tmp);
             if (c.sum_hess >= param_.min_child_weight &&
                 tmp.sum_hess >= param_.min_child_weight) {
-              auto loss_chg = static_cast<bst_float>(
+              auto loss_chg = static_cast<bst_double>(
                   spliteval_->ComputeSplitScore(nid, fid, tmp, c) -
                   snode_[nid].root_gain);
               e.best.Update(loss_chg, fid, fsplit, true, tmp, c);
@@ -326,7 +326,7 @@ class ColMaker: public TreeUpdater {
           c.SetSubstract(snode_[nid].stats, tmp);
           if (c.sum_hess >= param_.min_child_weight &&
               tmp.sum_hess >= param_.min_child_weight) {
-            auto loss_chg = static_cast<bst_float>(
+            auto loss_chg = static_cast<bst_double>(
                 spliteval_->ComputeSplitScore(nid, fid, tmp, c) -
                 snode_[nid].root_gain);
             e.best.Update(loss_chg, fid, e.last_fvalue + kRtEps, true, tmp, c);
@@ -345,7 +345,7 @@ class ColMaker: public TreeUpdater {
           const bst_uint ridx = col[i].index;
           const int nid = position_[ridx];
           if (nid < 0) continue;
-          const bst_float fvalue = col[i].fvalue;
+          const bst_double fvalue = col[i].fvalue;
           // get the statistics of nid
           ThreadEntry &e = temp[nid];
           if (e.stats.Empty()) {
@@ -358,7 +358,7 @@ class ColMaker: public TreeUpdater {
                 c.SetSubstract(snode_[nid].stats, e.stats);
                 if (c.sum_hess >= param_.min_child_weight &&
                     e.stats.sum_hess >= param_.min_child_weight) {
-                  auto loss_chg = static_cast<bst_float>(
+                  auto loss_chg = static_cast<bst_double>(
                       spliteval_->ComputeSplitScore(nid, fid, e.stats, c) -
                       snode_[nid].root_gain);
                   e.best.Update(loss_chg, fid, (fvalue + e.first_fvalue) * 0.5f,
@@ -370,7 +370,7 @@ class ColMaker: public TreeUpdater {
                 c.SetSubstract(snode_[nid].stats, cright);
                 if (c.sum_hess >= param_.min_child_weight &&
                     cright.sum_hess >= param_.min_child_weight) {
-                  auto loss_chg = static_cast<bst_float>(
+                  auto loss_chg = static_cast<bst_double>(
                       spliteval_->ComputeSplitScore(nid, fid, c, cright) -
                       snode_[nid].root_gain);
                   e.best.Update(loss_chg, fid, (fvalue + e.first_fvalue) * 0.5f, true, c, cright);
@@ -385,7 +385,7 @@ class ColMaker: public TreeUpdater {
     }
     // update enumeration solution
     inline void UpdateEnumeration(int nid, GradientPair gstats,
-                                  bst_float fvalue, int d_step, bst_uint fid,
+                                  bst_double fvalue, int d_step, bst_uint fid,
                                   GradStats &c, std::vector<ThreadEntry> &temp) { // NOLINT(*)
       // get the statistics of nid
       ThreadEntry &e = temp[nid];
@@ -399,15 +399,15 @@ class ColMaker: public TreeUpdater {
             e.stats.sum_hess >= param_.min_child_weight) {
           c.SetSubstract(snode_[nid].stats, e.stats);
           if (c.sum_hess >= param_.min_child_weight) {
-            bst_float loss_chg;
+            bst_double loss_chg;
             if (d_step == -1) {
-              loss_chg = static_cast<bst_float>(
+              loss_chg = static_cast<bst_double>(
                   spliteval_->ComputeSplitScore(nid, fid, c, e.stats) -
                   snode_[nid].root_gain);
               e.best.Update(loss_chg, fid, (fvalue + e.last_fvalue) * 0.5f,
                             d_step == -1, c, e.stats);
             } else {
-              loss_chg = static_cast<bst_float>(
+              loss_chg = static_cast<bst_double>(
                   spliteval_->ComputeSplitScore(nid, fid, e.stats, c) -
                   snode_[nid].root_gain);
               e.best.Update(loss_chg, fid, (fvalue + e.last_fvalue) * 0.5f,
@@ -481,17 +481,17 @@ class ColMaker: public TreeUpdater {
         c.SetSubstract(snode_[nid].stats, e.stats);
         if (e.stats.sum_hess >= param_.min_child_weight &&
             c.sum_hess >= param_.min_child_weight) {
-          bst_float loss_chg;
-          const bst_float gap = std::abs(e.last_fvalue) + kRtEps;
-          const bst_float delta = d_step == +1 ? gap: -gap;
+          bst_double loss_chg;
+          const bst_double gap = std::abs(e.last_fvalue) + kRtEps;
+          const bst_double delta = d_step == +1 ? gap: -gap;
           if (d_step == -1) {
-            loss_chg = static_cast<bst_float>(
+            loss_chg = static_cast<bst_double>(
                 spliteval_->ComputeSplitScore(nid, fid, c, e.stats) -
                 snode_[nid].root_gain);
             e.best.Update(loss_chg, fid, e.last_fvalue + delta, d_step == -1, c,
                           e.stats);
           } else {
-            loss_chg = static_cast<bst_float>(
+            loss_chg = static_cast<bst_double>(
                 spliteval_->ComputeSplitScore(nid, fid, e.stats, c) -
                 snode_[nid].root_gain);
             e.best.Update(loss_chg, fid, e.last_fvalue + delta, d_step == -1,
@@ -526,7 +526,7 @@ class ColMaker: public TreeUpdater {
         const int nid = position_[ridx];
         if (nid < 0) continue;
         // start working
-        const bst_float fvalue = it->fvalue;
+        const bst_double fvalue = it->fvalue;
         // get the statistics of nid
         ThreadEntry &e = temp[nid];
         // test if first hit, this is fine, because we set 0 during init
@@ -539,15 +539,15 @@ class ColMaker: public TreeUpdater {
               e.stats.sum_hess >= param_.min_child_weight) {
             c.SetSubstract(snode_[nid].stats, e.stats);
             if (c.sum_hess >= param_.min_child_weight) {
-              bst_float loss_chg;
+              bst_double loss_chg;
               if (d_step == -1) {
-                loss_chg = static_cast<bst_float>(
+                loss_chg = static_cast<bst_double>(
                     spliteval_->ComputeSplitScore(nid, fid, c, e.stats) -
                     snode_[nid].root_gain);
                 e.best.Update(loss_chg, fid, (fvalue + e.last_fvalue) * 0.5f,
                               d_step == -1, c, e.stats);
               } else {
-                loss_chg = static_cast<bst_float>(
+                loss_chg = static_cast<bst_double>(
                     spliteval_->ComputeSplitScore(nid, fid, e.stats, c) -
                     snode_[nid].root_gain);
                 e.best.Update(loss_chg, fid, (fvalue + e.last_fvalue) * 0.5f,
@@ -566,7 +566,7 @@ class ColMaker: public TreeUpdater {
         c.SetSubstract(snode_[nid].stats, e.stats);
         if (e.stats.sum_hess >= param_.min_child_weight &&
             c.sum_hess >= param_.min_child_weight) {
-          bst_float loss_chg;
+          bst_double loss_chg;
           GradStats left_sum;
           GradStats right_sum;
           if (d_step == -1) {
@@ -576,11 +576,11 @@ class ColMaker: public TreeUpdater {
             left_sum = e.stats;
             right_sum = c;
           }
-          loss_chg = static_cast<bst_float>(
+          loss_chg = static_cast<bst_double>(
               spliteval_->ComputeSplitScore(nid, fid, left_sum, right_sum) -
               snode_[nid].root_gain);
-          const bst_float gap = std::abs(e.last_fvalue) + kRtEps;
-          const bst_float delta = d_step == +1 ? gap: -gap;
+          const bst_double gap = std::abs(e.last_fvalue) + kRtEps;
+          const bst_double delta = d_step == +1 ? gap: -gap;
           e.best.Update(loss_chg, fid, e.last_fvalue + delta, d_step == -1, left_sum, right_sum);
         }
       }
@@ -642,10 +642,10 @@ class ColMaker: public TreeUpdater {
         NodeEntry &e = snode_[nid];
         // now we know the solution in snode[nid], set split
         if (e.best.loss_chg > kRtEps) {
-          bst_float left_leaf_weight =
+          bst_double left_leaf_weight =
               spliteval_->ComputeWeight(nid, e.best.left_sum) *
               param_.learning_rate;
-          bst_float right_leaf_weight =
+          bst_double right_leaf_weight =
               spliteval_->ComputeWeight(nid, e.best.right_sum) *
               param_.learning_rate;
           p_tree->ExpandNode(nid, e.best.SplitIndex(), e.best.split_value,
@@ -719,7 +719,7 @@ class ColMaker: public TreeUpdater {
           for (bst_omp_uint j = 0; j < ndata; ++j) {
             const bst_uint ridx = col[j].index;
             const int nid = this->DecodePosition(ridx);
-            const bst_float fvalue = col[j].fvalue;
+            const bst_double fvalue = col[j].fvalue;
             // go back to parent, correct those who are not default
             if (!tree[nid].IsLeaf() && tree[nid].SplitIndex() == fid) {
               if (fvalue < tree[nid].SplitCond()) {
@@ -843,7 +843,7 @@ class DistColMaker : public ColMaker {
           #pragma omp parallel for schedule(static)
           for (bst_omp_uint j = 0; j < ndata; ++j) {
             const bst_uint ridx = col[j].index;
-            const bst_float fvalue = col[j].fvalue;
+            const bst_double fvalue = col[j].fvalue;
             const int nid = this->DecodePosition(ridx);
             if (!tree[nid].IsLeaf() && tree[nid].SplitIndex() == fid) {
               if (fvalue < tree[nid].SplitCond()) {

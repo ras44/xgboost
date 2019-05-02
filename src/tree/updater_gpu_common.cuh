@@ -50,15 +50,15 @@ DEV_INLINE void AtomicAddGpair(OutputGradientT* dest,
 
 struct GPUTrainingParam {
   // minimum amount of hessian(weight) allowed in a child
-  float min_child_weight;
+  double min_child_weight;
   // L2 regularization factor
-  float reg_lambda;
+  double reg_lambda;
   // L1 regularization factor
-  float reg_alpha;
+  double reg_alpha;
   // maximum delta update we can add in weight estimation
   // this parameter can be used to stabilize update
   // default=0 means no constraint on weight delta
-  float max_delta_step;
+  double max_delta_step;
 
   GPUTrainingParam() = default;
 
@@ -86,9 +86,9 @@ enum DefaultDirection {
 };
 
 struct DeviceSplitCandidate {
-  float loss_chg;
+  double loss_chg;
   DefaultDirection dir;
-  float fvalue;
+  double fvalue;
   int findex;
   GradientPair left_sum;
   GradientPair right_sum;
@@ -106,8 +106,8 @@ struct DeviceSplitCandidate {
     }
   }
 
-  XGBOOST_DEVICE void Update(float loss_chg_in, DefaultDirection dir_in,
-                         float fvalue_in, int findex_in,
+  XGBOOST_DEVICE void Update(double loss_chg_in, DefaultDirection dir_in,
+                         double fvalue_in, int findex_in,
                          GradientPair left_sum_in,
                          GradientPair right_sum_in,
                          const GPUTrainingParam& param) {
@@ -139,13 +139,13 @@ struct DeviceSplitCandidateReduceOp {
 
 struct DeviceNodeStats {
   GradientPair sum_gradients;
-  float root_gain;
-  float weight;
+  double root_gain;
+  double weight;
 
   /** default direction for missing values */
   DefaultDirection dir;
   /** threshold value for comparison */
-  float fvalue;
+  double fvalue;
   GradientPair left_sum;
   GradientPair right_sum;
   /** \brief The feature index. */
@@ -178,7 +178,7 @@ struct DeviceNodeStats {
         CalcWeight(param, sum_gradients.GetGrad(), sum_gradients.GetHess());
   }
 
-  HOST_DEV_INLINE void SetSplit(float fvalue, int fidx, DefaultDirection dir,
+  HOST_DEV_INLINE void SetSplit(double fvalue, int fidx, DefaultDirection dir,
                                 GradientPair left_sum, GradientPair right_sum) {
     this->fvalue = fvalue;
     this->fidx = fidx;
@@ -215,13 +215,13 @@ struct SumCallbackOp {
 };
 
 template <typename GradientPairT>
-XGBOOST_DEVICE inline float DeviceCalcLossChange(const GPUTrainingParam& param,
+XGBOOST_DEVICE inline double DeviceCalcLossChange(const GPUTrainingParam& param,
                                              const GradientPairT& left,
                                              const GradientPairT& parent_sum,
-                                             const float& parent_gain) {
+                                             const double& parent_gain) {
   GradientPairT right = parent_sum - left;
-  float left_gain = CalcGain(param, left.GetGrad(), left.GetHess());
-  float right_gain = CalcGain(param, right.GetGrad(), right.GetHess());
+  double left_gain = CalcGain(param, left.GetGrad(), left.GetHess());
+  double right_gain = CalcGain(param, right.GetGrad(), right.GetHess());
   return left_gain + right_gain - parent_gain;
 }
 
@@ -285,16 +285,16 @@ inline void Dense2SparseTree(RegTree* p_tree,
  */
 
 struct BernoulliRng {
-  float p;
+  double p;
   uint32_t seed;
 
-  XGBOOST_DEVICE BernoulliRng(float p, size_t seed_) : p(p) {
+  XGBOOST_DEVICE BernoulliRng(double p, size_t seed_) : p(p) {
     seed = static_cast<uint32_t>(seed_);
   }
 
   XGBOOST_DEVICE bool operator()(const int i) const {
     thrust::default_random_engine rng(seed);
-    thrust::uniform_real_distribution<float> dist;
+    thrust::uniform_real_distribution<double> dist;
     rng.discard(i);
     return dist(rng) <= p;
   }
@@ -303,7 +303,7 @@ struct BernoulliRng {
 // Set gradient pair to 0 with p = 1 - subsample
 inline void SubsampleGradientPair(int device_idx,
                                   common::Span<GradientPair> d_gpair,
-                                  float subsample, int offset = 0) {
+                                  double subsample, int offset = 0) {
   if (subsample == 1.0) {
     return;
   }

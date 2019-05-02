@@ -38,9 +38,9 @@ class MultiClassMetricsReduction {
   MultiClassMetricsReduction() = default;
 
   PackedReduceResult CpuReduceMetrics(
-      const HostDeviceVector<bst_float>& weights,
-      const HostDeviceVector<bst_float>& labels,
-      const HostDeviceVector<bst_float>& preds,
+      const HostDeviceVector<bst_double>& weights,
+      const HostDeviceVector<bst_double>& labels,
+      const HostDeviceVector<bst_double>& preds,
       const size_t n_class) const {
     size_t ndata = labels.Size();
 
@@ -48,14 +48,14 @@ class MultiClassMetricsReduction {
     const auto& h_weights = weights.HostVector();
     const auto& h_preds = preds.HostVector();
 
-    bst_float residue_sum = 0;
-    bst_float weights_sum = 0;
+    bst_double residue_sum = 0;
+    bst_double weights_sum = 0;
     int label_error = 0;
     bool const is_null_weight = weights.Size() == 0;
 
 #pragma omp parallel for reduction(+: residue_sum, weights_sum) schedule(static)
     for (omp_ulong idx = 0; idx < ndata; ++idx) {
-      bst_float weight = is_null_weight ? 1.0f : h_weights[idx];
+      bst_double weight = is_null_weight ? 1.0f : h_weights[idx];
       auto label = static_cast<int>(h_labels[idx]);
       if (label >= 0 && label < static_cast<int>(n_class)) {
         residue_sum += EvalRowPolicy::EvalRow(
@@ -76,9 +76,9 @@ class MultiClassMetricsReduction {
   PackedReduceResult DeviceReduceMetrics(
       GPUSet::GpuIdType device_id,
       size_t device_index,
-      const HostDeviceVector<bst_float>& weights,
-      const HostDeviceVector<bst_float>& labels,
-      const HostDeviceVector<bst_float>& preds,
+      const HostDeviceVector<bst_double>& weights,
+      const HostDeviceVector<bst_double>& labels,
+      const HostDeviceVector<bst_double>& preds,
       const size_t n_class) {
     size_t n_data = labels.DeviceSize(device_id);
 
@@ -97,8 +97,8 @@ class MultiClassMetricsReduction {
         thrust::cuda::par(allocators_.at(device_index)),
         begin, end,
         [=] XGBOOST_DEVICE(size_t idx) {
-          bst_float weight = is_null_weight ? 1.0f : s_weights[idx];
-          bst_float residue = 0;
+          bst_double weight = is_null_weight ? 1.0f : s_weights[idx];
+          bst_double residue = 0;
           auto label = static_cast<int>(s_labels[idx]);
           if (label >= 0 && label < static_cast<int32_t>(n_class)) {
             residue = EvalRowPolicy::EvalRow(
@@ -120,9 +120,9 @@ class MultiClassMetricsReduction {
   PackedReduceResult Reduce(
       GPUSet devices,
       size_t n_class,
-      const HostDeviceVector<bst_float>& weights,
-      const HostDeviceVector<bst_float>& labels,
-      const HostDeviceVector<bst_float>& preds) {
+      const HostDeviceVector<bst_double>& weights,
+      const HostDeviceVector<bst_double>& labels,
+      const HostDeviceVector<bst_double>& preds) {
     PackedReduceResult result;
 
     if (devices.IsEmpty()) {
@@ -173,7 +173,7 @@ struct EvalMClassBase : public Metric {
     param_.InitAllowUnknown(args);
   }
 
-  bst_float Eval(const HostDeviceVector<bst_float> &preds,
+  bst_double Eval(const HostDeviceVector<bst_double> &preds,
                  const MetaInfo &info,
                  bool distributed) override {
     CHECK_NE(info.labels_.Size(), 0U) << "label set cannot be empty";
@@ -201,15 +201,15 @@ struct EvalMClassBase : public Metric {
    * \param pred prediction value of current instance
    * \param nclass number of class in the prediction
    */
-  XGBOOST_DEVICE static bst_float EvalRow(int label,
-                                          const bst_float *pred,
+  XGBOOST_DEVICE static bst_double EvalRow(int label,
+                                          const bst_double *pred,
                                           size_t nclass);
   /*!
    * \brief to be overridden by subclass, final transformation
    * \param esum the sum statistics returned by EvalRow
    * \param wsum sum of weight
    */
-  inline static bst_float GetFinal(bst_float esum, bst_float wsum) {
+  inline static bst_double GetFinal(bst_double esum, bst_double wsum) {
     return esum / wsum;
   }
 
@@ -225,8 +225,8 @@ struct EvalMatchError : public EvalMClassBase<EvalMatchError> {
   const char* Name() const override {
     return "merror";
   }
-  XGBOOST_DEVICE static bst_float EvalRow(int label,
-                                          const bst_float *pred,
+  XGBOOST_DEVICE static bst_double EvalRow(int label,
+                                          const bst_double *pred,
                                           size_t nclass) {
     return common::FindMaxIndex(pred, pred + nclass) != pred + static_cast<int>(label);
   }
@@ -237,10 +237,10 @@ struct EvalMultiLogLoss : public EvalMClassBase<EvalMultiLogLoss> {
   const char* Name() const override {
     return "mlogloss";
   }
-  XGBOOST_DEVICE static bst_float EvalRow(int label,
-                                          const bst_float *pred,
+  XGBOOST_DEVICE static bst_double EvalRow(int label,
+                                          const bst_double *pred,
                                           size_t nclass) {
-    const bst_float eps = 1e-16f;
+    const bst_double eps = 1e-16f;
     auto k = static_cast<size_t>(label);
     if (pred[k] > eps) {
       return -std::log(pred[k]);

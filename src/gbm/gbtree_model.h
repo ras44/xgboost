@@ -62,7 +62,7 @@ struct GBTreeModelParam : public dmlc::Parameter<GBTreeModelParam> {
 };
 
 struct GBTreeModel {
-  explicit GBTreeModel(bst_float base_margin) : base_margin(base_margin) {}
+  explicit GBTreeModel(bst_double base_margin) : base_margin(base_margin) {}
   void Configure(const std::vector<std::pair<std::string, std::string> >& cfg) {
     // initialize model parameters if not yet been initialized.
     if (trees.size() == 0) {
@@ -128,7 +128,7 @@ struct GBTreeModel {
   }
 
   // base margin
-  bst_float base_margin;
+  bst_double base_margin;
   // model parameter
   GBTreeModelParam param;
   /*! \brief vector of trees stored in the model */

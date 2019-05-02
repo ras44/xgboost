@@ -145,7 +145,7 @@ class CompressedBufferWriter {
 
     // Eject all bytes
     int tmp_bytes =
-        static_cast<int>(std::ceil(static_cast<float>(stored_bits) / 8));
+        static_cast<int>(std::ceil(static_cast<double>(stored_bits) / 8));
     for (int j = 0; j < tmp_bytes; j++) {
       int shift_bits = static_cast<int>(stored_bits) - (j + 1) * 8;
       if (shift_bits >= 0) {

@@ -63,7 +63,7 @@ void QuantileHistMaker::Update(HostDeviceVector<GradientPair> *gpair,
     LOG(INFO) << "Generating gmat: " << dmlc::GetTime() - tstart << " sec";
   }
   // rescale learning rate according to size of trees
-  float lr = param_.learning_rate;
+  double lr = param_.learning_rate;
   param_.learning_rate = lr / trees.size();
   // build tree
   if (!builder_) {
@@ -80,7 +80,7 @@ void QuantileHistMaker::Update(HostDeviceVector<GradientPair> *gpair,
 
 bool QuantileHistMaker::UpdatePredictionCache(
     const DMatrix* data,
-    HostDeviceVector<bst_float>* out_preds) {
+    HostDeviceVector<bst_double>* out_preds) {
   if (!builder_ || param_.subsample < 1.0f) {
     return false;
   } else {
@@ -337,7 +337,7 @@ void QuantileHistMaker::Builder::Update(const GHistIndexMatrix& gmat,
   for (int nid = 0; nid < p_tree->param.num_nodes; ++nid) {
     p_tree->Stat(nid).loss_chg = snode_[nid].best.loss_chg;
     p_tree->Stat(nid).base_weight = snode_[nid].weight;
-    p_tree->Stat(nid).sum_hess = static_cast<float>(snode_[nid].stats.sum_hess);
+    p_tree->Stat(nid).sum_hess = static_cast<double>(snode_[nid].stats.sum_hess);
   }
 
   pruner_->Update(gpair, p_fmat, std::vector<RegTree*>{p_tree});
@@ -347,8 +347,8 @@ void QuantileHistMaker::Builder::Update(const GHistIndexMatrix& gmat,
 
 bool QuantileHistMaker::Builder::UpdatePredictionCache(
     const DMatrix* data,
-    HostDeviceVector<bst_float>* p_out_preds) {
-  std::vector<bst_float>& out_preds = p_out_preds->HostVector();
+    HostDeviceVector<bst_double>* p_out_preds) {
+  std::vector<bst_double>& out_preds = p_out_preds->HostVector();
 
   // p_last_fmat_ is a valid pointer as long as UpdatePredictionCache() is called in
   // conjunction with Update().
@@ -358,7 +358,7 @@ bool QuantileHistMaker::Builder::UpdatePredictionCache(
 
   if (leaf_value_cache_.empty()) {
     leaf_value_cache_.resize(p_last_tree_->param.num_nodes,
-                             std::numeric_limits<float>::infinity());
+                             std::numeric_limits<double>::infinity());
   }
 
   CHECK_GT(out_preds.size(), 0U);
@@ -366,7 +366,7 @@ bool QuantileHistMaker::Builder::UpdatePredictionCache(
   for (const RowSetCollection::Elem rowset : row_set_collection_) {
     if (rowset.begin != nullptr && rowset.end != nullptr) {
       int nid = rowset.node_id;
-      bst_float leaf_value;
+      bst_double leaf_value;
       // if a node is marked as deleted by the pruner, traverse upward to locate
       // a non-deleted leaf.
       if ((*p_last_tree_)[nid].IsDeleted()) {
@@ -602,9 +602,9 @@ void QuantileHistMaker::Builder::ApplySplit(int nid,
 
   /* 1. Create child nodes */
   NodeEntry& e = snode_[nid];
-  bst_float left_leaf_weight =
+  bst_double left_leaf_weight =
       spliteval_->ComputeWeight(nid, e.best.left_sum) * param_.learning_rate;
-  bst_float right_leaf_weight =
+  bst_double right_leaf_weight =
       spliteval_->ComputeWeight(nid, e.best.right_sum) * param_.learning_rate;
   p_tree->ExpandNode(nid, e.best.SplitIndex(), e.best.split_value,
                      e.best.DefaultLeft(), e.weight, left_leaf_weight,
@@ -619,11 +619,11 @@ void QuantileHistMaker::Builder::ApplySplit(int nid,
   }
   const bool default_left = (*p_tree)[nid].DefaultLeft();
   const bst_uint fid = (*p_tree)[nid].SplitIndex();
-  const bst_float split_pt = (*p_tree)[nid].SplitCond();
+  const bst_double split_pt = (*p_tree)[nid].SplitCond();
   const uint32_t lower_bound = gmat.cut.row_ptr[fid];
   const uint32_t upper_bound = gmat.cut.row_ptr[fid + 1];
   int32_t split_cond = -1;
-  // convert floating-point split_pt into corresponding bin_id
+  // convert binary64 split_pt into corresponding bin_id
   // split_cond = -1 indicates that split_pt is less than all known cut points
   CHECK_LT(upper_bound,
            static_cast<uint32_t>(std::numeric_limits<int32_t>::max()));
@@ -823,9 +823,9 @@ void QuantileHistMaker::Builder::InitNewNode(int nid,
   // calculating the weights
   {
     bst_uint parentid = tree[nid].Parent();
-    snode_[nid].weight = static_cast<float>(
+    snode_[nid].weight = static_cast<double>(
             spliteval_->ComputeWeight(parentid, snode_[nid].stats));
-    snode_[nid].root_gain = static_cast<float>(
+    snode_[nid].root_gain = static_cast<double>(
             spliteval_->ComputeScore(parentid, snode_[nid].stats, snode_[nid].weight));
   }
   builder_monitor_.Stop("InitNewNode");
@@ -844,7 +844,7 @@ void QuantileHistMaker::Builder::EnumerateSplit(int d_step,
 
   // aliases
   const std::vector<uint32_t>& cut_ptr = gmat.cut.row_ptr;
-  const std::vector<bst_float>& cut_val = gmat.cut.cut;
+  const std::vector<bst_double>& cut_val = gmat.cut.cut;
 
   // statistics on both sides of split
   GradStats c;
@@ -878,18 +878,18 @@ void QuantileHistMaker::Builder::EnumerateSplit(int d_step,
     if (e.sum_hess >= param_.min_child_weight) {
       c.SetSubstract(snode.stats, e);
       if (c.sum_hess >= param_.min_child_weight) {
-        bst_float loss_chg;
-        bst_float split_pt;
+        bst_double loss_chg;
+        bst_double split_pt;
         if (d_step > 0) {
           // forward enumeration: split at right bound of each bin
-          loss_chg = static_cast<bst_float>(
+          loss_chg = static_cast<bst_double>(
               spliteval_->ComputeSplitScore(nodeID, fid, e, c) -
               snode.root_gain);
           split_pt = cut_val[i];
           best.Update(loss_chg, fid, split_pt, d_step == -1, e, c);
         } else {
           // backward enumeration: split at left bound of each bin
-          loss_chg = static_cast<bst_float>(
+          loss_chg = static_cast<bst_double>(
               spliteval_->ComputeSplitScore(nodeID, fid, c, e) -
               snode.root_gain);
           if (i == imin) {
