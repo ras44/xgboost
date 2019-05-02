@@ -180,7 +180,7 @@ def ctypes2numpy(cptr, length, dtype):
     """Convert a ctypes pointer array to a numpy array.
     """
     NUMPY_TO_CTYPES_MAPPING = {
-        np.float32: ctypes.c_float,
+        np.float64: ctypes.c_double,
         np.uint32: ctypes.c_uint,
     }
     if dtype not in NUMPY_TO_CTYPES_MAPPING:
@@ -475,7 +475,7 @@ class DMatrix(object):
         # flatten the array by rows and ensure it is float32.
         # we try to avoid data copies if possible (reshape returns a view when possible
         # and we explicitly tell np.array to try and avoid copying)
-        data = np.array(mat.reshape(mat.size), copy=False, dtype=np.float32)
+        data = np.array(mat.reshape(mat.size), copy=False, dtype=np.float64)
         handle = ctypes.c_void_p()
         missing = missing if missing is not None else np.nan
         if nthread is None:
@@ -550,7 +550,7 @@ class DMatrix(object):
                                                c_str(field),
                                                ctypes.byref(length),
                                                ctypes.byref(ret)))
-        return ctypes2numpy(ret, length.value, np.float32)
+        return ctypes2numpy(ret, length.value, np.float64)
 
     def get_uint_info(self, field):
         """Get unsigned integer property from the DMatrix.
@@ -612,9 +612,9 @@ class DMatrix(object):
            and isinstance(data.base, np.ndarray) and (not data.flags.c_contiguous):
             warnings.warn("Use subset (sliced data) of np.ndarray is not recommended " +
                           "because it will generate extra copies and increase memory consumption")
-            data = np.array(data, copy=True, dtype=np.float32)
+            data = np.array(data, copy=True, dtype=np.float64)
         else:
-            data = np.array(data, copy=False, dtype=np.float32)
+            data = np.array(data, copy=False, dtype=np.float64)
         c_data = data.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
         _check_call(_LIB.XGDMatrixSetFloatInfo(self.handle,
                                                c_str(field),
@@ -1290,7 +1290,7 @@ class Booster(object):
                                           ctypes.c_uint(ntree_limit),
                                           ctypes.byref(length),
                                           ctypes.byref(preds)))
-        preds = ctypes2numpy(preds, length.value, np.float32)
+        preds = ctypes2numpy(preds, length.value, np.float64)
         if pred_leaf:
             preds = preds.astype(np.int32)
         nrow = data.num_row()

@@ -542,7 +542,7 @@ class XGBModel(XGBModelBase):
         b = self.get_booster()
         score = b.get_score(importance_type=self.importance_type)
         all_features = [score.get(f, 0.) for f in b.feature_names]
-        all_features = np.array(all_features, dtype=np.float32)
+        all_features = np.array(all_features, dtype=np.float64)
         return all_features / all_features.sum()
 
     @property
