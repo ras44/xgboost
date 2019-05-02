@@ -72,7 +72,7 @@ XGB_DLL SEXP XGDMatrixSaveBinary_R(SEXP handle, SEXP fname, SEXP silent);
  * \brief set information to dmatrix
  * \param handle a instance of data matrix
  * \param field field name, can be label, weight
- * \param array pointer to float vector
+ * \param array pointer to double vector
  * \return R_NilValue
  */
 XGB_DLL SEXP XGDMatrixSetInfo_R(SEXP handle, SEXP field, SEXP array);

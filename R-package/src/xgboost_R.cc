@@ -76,11 +76,11 @@ SEXP XGDMatrixCreateFromMat_R(SEXP mat,
   } else {
     din = REAL(mat);
   }
-  std::vector<float> data(nrow * ncol);
+  std::vector<double> data(nrow * ncol);
   #pragma omp parallel for schedule(static)
   for (omp_ulong i = 0; i < nrow; ++i) {
     for (size_t j = 0; j < ncol; ++j) {
-      data[i * ncol +j] = is_int ? static_cast<float>(iin[i + nrow * j]) : din[i + nrow * j];
+      data[i * ncol +j] = is_int ? static_cast<double>(iin[i + nrow * j]) : din[i + nrow * j];
     }
   }
   DMatrixHandle handle;
@@ -106,7 +106,7 @@ SEXP XGDMatrixCreateFromCSC_R(SEXP indptr,
   size_t nrow = static_cast<size_t>(INTEGER(num_row)[0]);
   std::vector<size_t> col_ptr_(nindptr);
   std::vector<unsigned> indices_(ndata);
-  std::vector<float> data_(ndata);
+  std::vector<double> data_(ndata);
 
   for (size_t i = 0; i < nindptr; ++i) {
     col_ptr_[i] = static_cast<size_t>(p_indptr[i]);
@@ -114,7 +114,7 @@ SEXP XGDMatrixCreateFromCSC_R(SEXP indptr,
   #pragma omp parallel for schedule(static)
   for (int64_t i = 0; i < static_cast<int64_t>(ndata); ++i) {
     indices_[i] = static_cast<unsigned>(p_indices[i]);
-    data_[i] = static_cast<float>(p_data[i]);
+    data_[i] = static_cast<double>(p_data[i]);
   }
   DMatrixHandle handle;
   CHECK_CALL(XGDMatrixCreateFromCSCEx(BeginPtr(col_ptr_), BeginPtr(indices_),
@@ -167,7 +167,7 @@ SEXP XGDMatrixSetInfo_R(SEXP handle, SEXP field, SEXP array) {
     }
     CHECK_CALL(XGDMatrixSetGroup(R_ExternalPtrAddr(handle), BeginPtr(vec), len));
   } else {
-    std::vector<float> vec(len);
+    std::vector<double> vec(len);
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < len; ++i) {
       vec[i] = REAL(array)[i];
@@ -184,7 +184,7 @@ SEXP XGDMatrixGetInfo_R(SEXP handle, SEXP field) {
   SEXP ret;
   R_API_BEGIN();
   bst_ulong olen;
-  const float *res;
+  const double *res;
   CHECK_CALL(XGDMatrixGetFloatInfo(R_ExternalPtrAddr(handle),
                                    CHAR(asChar(field)),
                                  &olen,
@@ -261,7 +261,7 @@ SEXP XGBoosterBoostOneIter_R(SEXP handle, SEXP dtrain, SEXP grad, SEXP hess) {
   CHECK_EQ(length(grad), length(hess))
       << "gradient and hess must have same length";
   int len = length(grad);
-  std::vector<float> tgrad(len), thess(len);
+  std::vector<double> tgrad(len), thess(len);
   #pragma omp parallel for schedule(static)
   for (int j = 0; j < len; ++j) {
     tgrad[j] = REAL(grad)[j];
@@ -304,7 +304,7 @@ SEXP XGBoosterPredict_R(SEXP handle, SEXP dmat, SEXP option_mask, SEXP ntree_lim
   SEXP ret;
   R_API_BEGIN();
   bst_ulong olen;
-  const float *res;
+  const double *res;
   CHECK_CALL(XGBoosterPredict(R_ExternalPtrAddr(handle),
                             R_ExternalPtrAddr(dmat),
                             asInteger(option_mask),

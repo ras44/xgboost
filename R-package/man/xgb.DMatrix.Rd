@@ -13,7 +13,7 @@ string representing a filename.}
 \item{info}{a named list of additional information to store in the \code{xgb.DMatrix} object.
 See \code{\link{setinfo}} for the specific allowed kinds of}
 
-\item{missing}{a float value to represents missing values in data (used only when input is a dense matrix).
+\item{missing}{a double value to represents missing values in data (used only when input is a dense matrix).
 It is useful when a 0 or some other extreme value represents missing values in data.}
 
 \item{silent}{whether to suppress printing an informational message after loading from a file.}

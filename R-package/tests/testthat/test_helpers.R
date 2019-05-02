@@ -5,7 +5,7 @@ require(data.table)
 require(Matrix)
 require(vcd, quietly = TRUE)
 
-float_tolerance = 5e-6
+double_tolerance = 5e-6
 
 # disable some tests for Win32
 win32_flag = .Platform$OS.type == "windows" && .Machine$sizeof.pointer != 8
@@ -94,7 +94,7 @@ test_that("predict feature contributions works", {
   colnames(X) <- NULL
   expect_error(pred_contr_ <- predict(bst.Tree, X, predcontrib = TRUE), regexp = NA)
   expect_equal(pred_contr, pred_contr_, check.attributes = FALSE,
-               tolerance = float_tolerance)
+               tolerance = double_tolerance)
 
   # gbtree binary classifier (approximate method)
   expect_error(pred_contr <- predict(bst.Tree, sparse_matrix, predcontrib = TRUE, approxcontrib = TRUE), regexp = NA)
@@ -114,7 +114,7 @@ test_that("predict feature contributions works", {
   coefs <- c(coefs[-1], coefs[1]) # intercept must be the last
   pred_contr_manual <- sweep(cbind(sparse_matrix, 1), 2, coefs, FUN="*")
   expect_equal(as.numeric(pred_contr), as.numeric(pred_contr_manual),
-               tolerance = float_tolerance)
+               tolerance = double_tolerance)
 
   # gbtree multiclass
   pred <- predict(mbst.Tree, as.matrix(iris[, -5]), outputmargin = TRUE, reshape = TRUE)
@@ -133,12 +133,12 @@ test_that("predict feature contributions works", {
   coefs_all <- xgb.dump(mbst.GLM)[-c(1,2,6)] %>% as.numeric %>% matrix(ncol = 3, byrow = TRUE)
   for (g in seq_along(pred_contr)) {
     expect_equal(colnames(pred_contr[[g]]), c(colnames(iris[, -5]), "BIAS"))
-    expect_lt(max(abs(rowSums(pred_contr[[g]]) - pred[, g])), float_tolerance)
+    expect_lt(max(abs(rowSums(pred_contr[[g]]) - pred[, g])), double_tolerance)
     # manual calculation of linear terms
     coefs <- c(coefs_all[-1, g], coefs_all[1, g]) # intercept needs to be the last
     pred_contr_manual <- sweep(as.matrix(cbind(iris[,-5], 1)), 2, coefs, FUN="*")
     expect_equal(as.numeric(pred_contr[[g]]), as.numeric(pred_contr_manual),
-                 tolerance = float_tolerance)
+                 tolerance = double_tolerance)
   }
 })
 
@@ -189,9 +189,9 @@ if (grepl('Windows', Sys.info()[['sysname']]) ||
       # retrieved attributes to be the same as written
       for (x in X) {
         xgb.attr(bst.Tree, "x") <- x
-        expect_equal(as.numeric(xgb.attr(bst.Tree, "x")), x, tolerance = float_tolerance)
+        expect_equal(as.numeric(xgb.attr(bst.Tree, "x")), x, tolerance = double_tolerance)
         xgb.attributes(bst.Tree) <- list(a = "A", b = x)
-        expect_equal(as.numeric(xgb.attr(bst.Tree, "b")), x, tolerance = float_tolerance)
+        expect_equal(as.numeric(xgb.attr(bst.Tree, "b")), x, tolerance = double_tolerance)
       }
     })
 }
@@ -200,7 +200,7 @@ test_that("xgb.Booster serializing as R object works", {
   saveRDS(bst.Tree, 'xgb.model.rds')
   bst <- readRDS('xgb.model.rds')
   dtrain <- xgb.DMatrix(sparse_matrix, label = label)
-  expect_equal(predict(bst.Tree, dtrain), predict(bst, dtrain), tolerance = float_tolerance)
+  expect_equal(predict(bst.Tree, dtrain), predict(bst, dtrain), tolerance = double_tolerance)
   expect_equal(xgb.dump(bst.Tree), xgb.dump(bst))
   xgb.save(bst, 'xgb.model')
   nil_ptr <- new("externalptr")
@@ -208,7 +208,7 @@ test_that("xgb.Booster serializing as R object works", {
   expect_true(identical(bst$handle, nil_ptr))
   bst <- xgb.Booster.complete(bst)
   expect_true(!identical(bst$handle, nil_ptr))
-  expect_equal(predict(bst.Tree, dtrain), predict(bst, dtrain), tolerance = float_tolerance)
+  expect_equal(predict(bst.Tree, dtrain), predict(bst, dtrain), tolerance = double_tolerance)
 })
 
 test_that("xgb.model.dt.tree works with and without feature names", {
@@ -248,14 +248,14 @@ test_that("xgb.importance works with and without feature names", {
   expect_output(str(importance.Tree), 'Feature.*\\"Age\\"')
 
   importance.Tree.0 <- xgb.importance(model = bst.Tree)
-  expect_equal(importance.Tree, importance.Tree.0, tolerance = float_tolerance)
+  expect_equal(importance.Tree, importance.Tree.0, tolerance = double_tolerance)
 
   # when model contains no feature names:
   bst.Tree.x <- bst.Tree
   bst.Tree.x$feature_names <- NULL
   importance.Tree.x <- xgb.importance(model = bst.Tree)
   expect_equal(importance.Tree[, -1, with=FALSE], importance.Tree.x[, -1, with=FALSE],
-               tolerance = float_tolerance)
+               tolerance = double_tolerance)
 
   imp2plot <- xgb.plot.importance(importance_matrix = importance.Tree)
   expect_equal(colnames(imp2plot), c("Feature", "Gain", "Cover", "Frequency", "Importance"))

@@ -122,7 +122,7 @@ xgb.Booster.complete <- function(object, saveraw = TRUE) {
 #'
 #' @param object Object of class \code{xgb.Booster} or \code{xgb.Booster.handle}
 #' @param newdata takes \code{matrix}, \code{dgCMatrix}, local data file or \code{xgb.DMatrix}.
-#' @param missing Missing is only used when input is dense matrix. Pick a float value that represents
+#' @param missing Missing is only used when input is dense matrix. Pick a double value that represents
 #'        missing values in data (e.g., sometimes 0 or some other extreme value is used).
 #' @param outputmargin whether the prediction should be returned in the for of original untransformed
 #'        sum of predictions from boosting iterations' results. E.g., setting \code{outputmargin=TRUE} for
@@ -221,7 +221,7 @@ xgb.Booster.complete <- function(object, saveraw = TRUE) {
 #' # the result is an nsamples X (nfeatures + 1) matrix
 #' pred_contr <- predict(bst, test$data, predcontrib = TRUE)
 #' str(pred_contr)
-#' # verify that contributions' sums are equal to log-odds of predictions (up to float precision):
+#' # verify that contributions' sums are equal to log-odds of predictions (up to double precision):
 #' summary(rowSums(pred_contr) - qlogis(pred))
 #' # for the 1st record, let's inspect its features that had non-zero contribution to prediction:
 #' contr1 <- pred_contr[1,]
