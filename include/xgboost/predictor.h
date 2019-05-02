@@ -66,7 +66,7 @@ class Predictor {
    * limit trees.
    */
 
-  virtual void PredictBatch(DMatrix* dmat, HostDeviceVector<bst_float>* out_preds,
+  virtual void PredictBatch(DMatrix* dmat, HostDeviceVector<bst_double>* out_preds,
                             const gbm::GBTreeModel& model, int tree_begin,
                             unsigned ntree_limit = 0) = 0;
 
@@ -92,7 +92,7 @@ class Predictor {
 
   /**
    * \fn  virtual void Predictor::PredictInstance( const SparsePage::Inst&
-   * inst, std::vector<bst_float>* out_preds, const gbm::GBTreeModel& model,
+   * inst, std::vector<bst_double>* out_preds, const gbm::GBTreeModel& model,
    * unsigned ntree_limit = 0, unsigned root_index = 0) = 0;
    *
    * \brief online prediction function, predict score for one instance at a time
@@ -108,14 +108,14 @@ class Predictor {
    */
 
   virtual void PredictInstance(const SparsePage::Inst& inst,
-                               std::vector<bst_float>* out_preds,
+                               std::vector<bst_double>* out_preds,
                                const gbm::GBTreeModel& model,
                                unsigned ntree_limit = 0,
                                unsigned root_index = 0) = 0;
 
   /**
    * \fn  virtual void Predictor::PredictLeaf(DMatrix* dmat,
-   * std::vector<bst_float>* out_preds, const gbm::GBTreeModel& model, unsigned
+   * std::vector<bst_double>* out_preds, const gbm::GBTreeModel& model, unsigned
    * ntree_limit = 0) = 0;
    *
    * \brief predict the leaf index of each tree, the output will be nsample *
@@ -127,13 +127,13 @@ class Predictor {
    * \param           ntree_limit (Optional) The ntree limit.
    */
 
-  virtual void PredictLeaf(DMatrix* dmat, std::vector<bst_float>* out_preds,
+  virtual void PredictLeaf(DMatrix* dmat, std::vector<bst_double>* out_preds,
                            const gbm::GBTreeModel& model,
                            unsigned ntree_limit = 0) = 0;
 
   /**
    * \fn  virtual void Predictor::PredictContribution( DMatrix* dmat,
-   * std::vector<bst_float>* out_contribs, const gbm::GBTreeModel& model,
+   * std::vector<bst_double>* out_contribs, const gbm::GBTreeModel& model,
    * unsigned ntree_limit = 0) = 0;
    *
    * \brief feature contributions to individual predictions; the output will be
@@ -150,7 +150,7 @@ class Predictor {
    */
 
   virtual void PredictContribution(DMatrix* dmat,
-                                   std::vector<bst_float>* out_contribs,
+                                   std::vector<bst_double>* out_contribs,
                                    const gbm::GBTreeModel& model,
                                    unsigned ntree_limit = 0,
                                    bool approximate = false,
@@ -158,7 +158,7 @@ class Predictor {
                                    unsigned condition_feature = 0) = 0;
 
   virtual void PredictInteractionContributions(DMatrix* dmat,
-                                   std::vector<bst_float>* out_contribs,
+                                   std::vector<bst_double>* out_contribs,
                                    const gbm::GBTreeModel& model,
                                    unsigned ntree_limit = 0,
                                    bool approximate = false) = 0;
@@ -180,7 +180,7 @@ class Predictor {
    */
   struct PredictionCacheEntry {
     std::shared_ptr<DMatrix> data;
-    HostDeviceVector<bst_float> predictions;
+    HostDeviceVector<bst_double> predictions;
   };
 
   /**

@@ -49,7 +49,7 @@ class Metric {
    *        the average statistics across all the node,
    *        this is only supported by some metrics
    */
-  virtual bst_float Eval(const HostDeviceVector<bst_float>& preds,
+  virtual bst_double Eval(const HostDeviceVector<bst_double>& preds,
                          const MetaInfo& info,
                          bool distributed) = 0;
   /*! \return name of metric */

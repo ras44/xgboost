@@ -111,7 +111,7 @@ class Learner : public rabit::Serializable {
    */
   virtual void Predict(DMatrix* data,
                        bool output_margin,
-                       HostDeviceVector<bst_float> *out_preds,
+                       HostDeviceVector<bst_double> *out_preds,
                        unsigned ntree_limit = 0,
                        bool pred_leaf = false,
                        bool pred_contribs = false,
@@ -171,7 +171,7 @@ class Learner : public rabit::Serializable {
    */
   inline void Predict(const SparsePage::Inst &inst,
                       bool output_margin,
-                      HostDeviceVector<bst_float> *out_preds,
+                      HostDeviceVector<bst_double> *out_preds,
                       unsigned ntree_limit = 0) const;
   /*!
    * \brief Create a new instance of learner.
@@ -188,7 +188,7 @@ class Learner : public rabit::Serializable {
 
  protected:
   /*! \brief internal base score of the model */
-  bst_float base_score_;
+  bst_double base_score_;
   /*! \brief objective function */
   std::unique_ptr<ObjFunction> obj_;
   /*! \brief The gradient booster used by the model*/
@@ -200,7 +200,7 @@ class Learner : public rabit::Serializable {
 // implementation of inline functions.
 inline void Learner::Predict(const SparsePage::Inst& inst,
                              bool output_margin,
-                             HostDeviceVector<bst_float>* out_preds,
+                             HostDeviceVector<bst_double>* out_preds,
                              unsigned ntree_limit) const {
   gbm_->PredictInstance(inst, &out_preds->HostVector(), ntree_limit);
   if (!output_margin) {

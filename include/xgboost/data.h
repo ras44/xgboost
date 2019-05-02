@@ -46,7 +46,7 @@ class MetaInfo {
   /*! \brief number of nonzero entries in the data */
   uint64_t num_nonzero_{0};
   /*! \brief label of each instance */
-  HostDeviceVector<bst_float> labels_;
+  HostDeviceVector<bst_double> labels_;
   /*!
    * \brief specified root index of each instance,
    *  can be used for multi task setting
@@ -58,7 +58,7 @@ class MetaInfo {
    */
   std::vector<bst_uint> group_ptr_;
   /*! \brief weights of each instance, optional */
-  HostDeviceVector<bst_float> weights_;
+  HostDeviceVector<bst_double> weights_;
   /*! \brief session-id of each instance, optional */
   std::vector<uint64_t> qids_;
   /*!
@@ -66,7 +66,7 @@ class MetaInfo {
    * if specified, xgboost will start from this init margin
    * can be used to specify initial prediction to boost from.
    */
-  HostDeviceVector<bst_float> base_margin_;
+  HostDeviceVector<bst_double> base_margin_;
   /*! \brief version flag, used to check version of this info */
   static const int kVersion = 2;
   /*! \brief version that introduced qid field */
@@ -78,7 +78,7 @@ class MetaInfo {
    * \param i Instance index.
    * \return The weight.
    */
-  inline bst_float GetWeight(size_t i) const {
+  inline bst_double GetWeight(size_t i) const {
     return weights_.Size() != 0 ?  weights_.HostVector()[i] : 1.0f;
   }
   /*!
@@ -133,7 +133,7 @@ struct Entry {
   /*! \brief feature index */
   bst_uint index;
   /*! \brief feature value */
-  bst_float fvalue;
+  bst_double fvalue;
   /*! \brief default constructor */
   Entry() = default;
   /*!
@@ -141,7 +141,7 @@ struct Entry {
    * \param index The feature or row index.
    * \param fvalue The feature value.
    */
-  Entry(bst_uint index, bst_float fvalue) : index(index), fvalue(fvalue) {}
+  Entry(bst_uint index, bst_double fvalue) : index(index), fvalue(fvalue) {}
   /*! \brief reversely compare feature values */
   inline static bool CmpValue(const Entry& a, const Entry& b) {
     return a.fvalue < b.fvalue;
@@ -415,7 +415,7 @@ class DMatrix {
   /*! \return Whether the data columns single column block. */
   virtual bool SingleColBlock() const = 0;
   /*! \brief get column density */
-  virtual float GetColDensity(size_t cidx) = 0;
+  virtual double GetColDensity(size_t cidx) = 0;
   /*! \brief virtual destructor */
   virtual ~DMatrix() = default;
   /*!

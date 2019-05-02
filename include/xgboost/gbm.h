@@ -80,7 +80,7 @@ class GradientBooster {
    *    we do not limit number of trees, this parameter is only valid for gbtree, but not for gblinear
    */
   virtual void PredictBatch(DMatrix* dmat,
-                            HostDeviceVector<bst_float>* out_preds,
+                            HostDeviceVector<bst_double>* out_preds,
                             unsigned ntree_limit = 0) = 0;
   /*!
    * \brief online prediction function, predict score for one instance at a time
@@ -95,7 +95,7 @@ class GradientBooster {
    * \sa Predict
    */
   virtual void PredictInstance(const SparsePage::Inst& inst,
-                       std::vector<bst_float>* out_preds,
+                       std::vector<bst_double>* out_preds,
                        unsigned ntree_limit = 0,
                        unsigned root_index = 0) = 0;
   /*!
@@ -107,7 +107,7 @@ class GradientBooster {
    *    we do not limit number of trees, this parameter is only valid for gbtree, but not for gblinear
    */
   virtual void PredictLeaf(DMatrix* dmat,
-                           std::vector<bst_float>* out_preds,
+                           std::vector<bst_double>* out_preds,
                            unsigned ntree_limit = 0) = 0;
 
   /*!
@@ -122,12 +122,12 @@ class GradientBooster {
    * \param condition_feature feature to condition on (i.e. fix) during calculations
    */
   virtual void PredictContribution(DMatrix* dmat,
-                           std::vector<bst_float>* out_contribs,
+                           std::vector<bst_double>* out_contribs,
                            unsigned ntree_limit = 0, bool approximate = false,
                            int condition = 0, unsigned condition_feature = 0) = 0;
 
   virtual void PredictInteractionContributions(DMatrix* dmat,
-                           std::vector<bst_float>* out_contribs,
+                           std::vector<bst_double>* out_contribs,
                            unsigned ntree_limit, bool approximate) = 0;
 
   /*!
@@ -150,7 +150,7 @@ class GradientBooster {
   static GradientBooster* Create(
       const std::string& name,
       const std::vector<std::shared_ptr<DMatrix> >& cache_mats,
-      bst_float base_margin);
+      bst_double base_margin);
 };
 
 // implementing configure.
@@ -167,7 +167,7 @@ struct GradientBoosterReg
     : public dmlc::FunctionRegEntryBase<
   GradientBoosterReg,
   std::function<GradientBooster* (const std::vector<std::shared_ptr<DMatrix> > &cached_mats,
-                                  bst_float base_margin)> > {
+                                  bst_double base_margin)> > {
 };
 
 /*!

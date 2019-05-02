@@ -44,7 +44,7 @@ class ObjFunction {
    * \param iteration current iteration number.
    * \param out_gpair output of get gradient, saves gradient and second order gradient in
    */
-  virtual void GetGradient(const HostDeviceVector<bst_float>& preds,
+  virtual void GetGradient(const HostDeviceVector<bst_double>& preds,
                            const MetaInfo& info,
                            int iteration,
                            HostDeviceVector<GradientPair>* out_gpair) = 0;
@@ -56,14 +56,14 @@ class ObjFunction {
    * \brief transform prediction values, this is only called when Prediction is called
    * \param io_preds prediction values, saves to this vector as well
    */
-  virtual void PredTransform(HostDeviceVector<bst_float> *io_preds) {}
+  virtual void PredTransform(HostDeviceVector<bst_double> *io_preds) {}
 
   /*!
    * \brief transform prediction values, this is only called when Eval is called,
    *  usually it redirect to PredTransform
    * \param io_preds prediction values, saves to this vector as well
    */
-  virtual void EvalTransform(HostDeviceVector<bst_float> *io_preds) {
+  virtual void EvalTransform(HostDeviceVector<bst_double> *io_preds) {
     this->PredTransform(io_preds);
   }
   /*!
@@ -72,7 +72,7 @@ class ObjFunction {
    * used by gradient boosting
    * \return transformed value
    */
-  virtual bst_float ProbToMargin(bst_float base_score) const {
+  virtual bst_double ProbToMargin(bst_double base_score) const {
     return base_score;
   }
   /*!

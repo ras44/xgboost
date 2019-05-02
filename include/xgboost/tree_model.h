@@ -74,11 +74,11 @@ struct TreeParam : public dmlc::Parameter<TreeParam> {
 /*! \brief node statistics used in regression tree */
 struct RTreeNodeStat {
   /*! \brief loss change caused by current split */
-  bst_float loss_chg;
+  bst_double loss_chg;
   /*! \brief sum of hessian values, used to measure coverage of data */
-  bst_float sum_hess;
+  bst_double sum_hess;
   /*! \brief weight of current node */
-  bst_float base_weight;
+  bst_double base_weight;
   /*! \brief number of child that is leaf node known up to now */
   int leaf_child_cnt;
   bool operator==(const RTreeNodeStat& b) const {
@@ -94,7 +94,7 @@ struct RTreeNodeStat {
 class RegTree {
  public:
   /*! \brief auxiliary statistics of node to help tree building */
-  using SplitCondT = bst_float;
+  using SplitCondT = bst_double;
   /*! \brief tree node */
   class Node {
    public:
@@ -128,7 +128,7 @@ class RegTree {
       return cleft_ == -1;
     }
     /*! \return get leaf value of leaf node */
-    XGBOOST_DEVICE bst_float LeafValue() const {
+    XGBOOST_DEVICE bst_double LeafValue() const {
       return (this->info_).leaf_value;
     }
     /*! \return get split condition of the node */
@@ -181,7 +181,7 @@ class RegTree {
      * \param right right index, could be used to store
      *        additional information
      */
-    XGBOOST_DEVICE void SetLeaf(bst_float value, int right = -1) {
+    XGBOOST_DEVICE void SetLeaf(bst_double value, int right = -1) {
       (this->info_).leaf_value = value;
       this->cleft_ = -1;
       this->cright_ = right;
@@ -211,7 +211,7 @@ class RegTree {
      *        we have split condition
      */
     union Info{
-      bst_float leaf_value;
+      bst_double leaf_value;
       SplitCondT split_cond;
     };
     // pointer to parent, highest bit is used to
@@ -230,7 +230,7 @@ class RegTree {
    * \param rid node id of the node
    * \param value new leaf value
    */
-  void ChangeToLeaf(int rid, bst_float value) {
+  void ChangeToLeaf(int rid, bst_double value) {
     CHECK(nodes_[nodes_[rid].LeftChild() ].IsLeaf());
     CHECK(nodes_[nodes_[rid].RightChild()].IsLeaf());
     this->DeleteNode(nodes_[rid].LeftChild());
@@ -242,7 +242,7 @@ class RegTree {
    * \param rid node id of the node
    * \param value new leaf value
    */
-  void CollapseToLeaf(int rid, bst_float value) {
+  void CollapseToLeaf(int rid, bst_double value) {
     if (nodes_[rid].IsLeaf()) return;
     if (!nodes_[nodes_[rid].LeftChild() ].IsLeaf()) {
       CollapseToLeaf(nodes_[rid].LeftChild(), 0.0f);
@@ -338,10 +338,10 @@ class RegTree {
    * \param loss_change       The loss change.
    * \param sum_hess          The sum hess.
    */
-  void ExpandNode(int nid, unsigned split_index, bst_float split_value,
-                  bool default_left, bst_float base_weight,
-                  bst_float left_leaf_weight, bst_float right_leaf_weight,
-                  bst_float loss_change, float sum_hess) {
+  void ExpandNode(int nid, unsigned split_index, bst_double split_value,
+                  bool default_left, bst_double base_weight,
+                  bst_double left_leaf_weight, bst_double right_leaf_weight,
+                  bst_double loss_change, double sum_hess) {
     int pleft = this->AllocNode();
     int pright = this->AllocNode();
     auto &node = nodes_[nid];
@@ -429,7 +429,7 @@ class RegTree {
      * \param i feature index.
      * \return the i-th feature value
      */
-    bst_float Fvalue(size_t i) const;
+    bst_double Fvalue(size_t i) const;
     /*!
      * \brief check whether i-th entry is missing
      * \param i feature index.
@@ -443,7 +443,7 @@ class RegTree {
      *  when flag == -1, this indicate the value is missing
      */
     union Entry {
-      bst_float fvalue;
+      bst_double fvalue;
       int flag;
     };
     std::vector<Entry> data_;
@@ -464,7 +464,7 @@ class RegTree {
    * \param condition_feature the index of the feature to fix
    */
   void CalculateContributions(const RegTree::FVec& feat, unsigned root_id,
-                              bst_float* out_contribs, int condition = 0,
+                              bst_double* out_contribs, int condition = 0,
                               unsigned condition_feature = 0) const;
   /*!
    * \brief Recursive function that computes the feature attributions for a single tree.
@@ -480,11 +480,11 @@ class RegTree {
    * \param condition_feature the index of the feature to fix
    * \param condition_fraction what fraction of the current weight matches our conditioning feature
    */
-  void TreeShap(const RegTree::FVec& feat, bst_float* phi, unsigned node_index,
+  void TreeShap(const RegTree::FVec& feat, bst_double* phi, unsigned node_index,
                 unsigned unique_depth, PathElement* parent_unique_path,
-                bst_float parent_zero_fraction, bst_float parent_one_fraction,
+                bst_double parent_zero_fraction, bst_double parent_one_fraction,
                 int parent_feature_index, int condition,
-                unsigned condition_feature, bst_float condition_fraction) const;
+                unsigned condition_feature, bst_double condition_fraction) const;
 
   /*!
    * \brief calculate the approximate feature contributions for the given root
@@ -493,14 +493,14 @@ class RegTree {
    * \param out_contribs output vector to hold the contributions
    */
   void CalculateContributionsApprox(const RegTree::FVec& feat, unsigned root_id,
-                                    bst_float* out_contribs) const;
+                                    bst_double* out_contribs) const;
   /*!
    * \brief get next position of the tree given current pid
    * \param pid Current node id.
    * \param fvalue feature value if not missing.
    * \param is_unknown Whether current required feature is missing.
    */
-  inline int GetNext(int pid, bst_float fvalue, bool is_unknown) const;
+  inline int GetNext(int pid, bst_double fvalue, bool is_unknown) const;
   /*!
    * \brief dump the model in the requested format as a text string
    * \param fmap feature map that may help give interpretations of feature
@@ -523,7 +523,7 @@ class RegTree {
   std::vector<int>  deleted_nodes_;
   // stats of nodes
   std::vector<RTreeNodeStat> stats_;
-  std::vector<bst_float> node_mean_values_;
+  std::vector<bst_double> node_mean_values_;
   // allocate a new node,
   // !!!!!! NOTE: may cause BUG here, nodes.resize
   int AllocNode() {
@@ -548,7 +548,7 @@ class RegTree {
     nodes_[nid].MarkDelete();
     ++param.num_deleted;
   }
-  bst_float FillNodeMeanValue(int nid);
+  bst_double FillNodeMeanValue(int nid);
 };
 
 inline void RegTree::FVec::Init(size_t size) {
@@ -575,7 +575,7 @@ inline size_t RegTree::FVec::Size() const {
   return data_.size();
 }
 
-inline bst_float RegTree::FVec::Fvalue(size_t i) const {
+inline bst_double RegTree::FVec::Fvalue(size_t i) const {
   return data_[i].fvalue;
 }
 
@@ -594,8 +594,8 @@ inline int RegTree::GetLeafIndex(const RegTree::FVec& feat,
 }
 
 /*! \brief get next position of the tree given current pid */
-inline int RegTree::GetNext(int pid, bst_float fvalue, bool is_unknown) const {
-  bst_float split_value = (*this)[pid].SplitCond();
+inline int RegTree::GetNext(int pid, bst_double fvalue, bool is_unknown) const {
+  bst_double split_value = (*this)[pid].SplitCond();
   if (is_unknown) {
     return (*this)[pid].DefaultChild();
   } else {

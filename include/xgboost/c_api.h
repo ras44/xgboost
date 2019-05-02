@@ -49,13 +49,13 @@ typedef struct {  // NOLINT(*)
   int64_t* offset;  // NOLINT(*)
 #endif  // __APPLE__
   /*! \brief labels of each instance */
-  float* label;
+  double* label;
   /*! \brief weight of each instance, can be NULL */
-  float* weight;
+  double* weight;
   /*! \brief feature index */
   int* index;
   /*! \brief feature values */
-  float* value;
+  double* value;
 } XGBoostBatchCSR;
 
 
@@ -141,7 +141,7 @@ XGB_DLL int XGDMatrixCreateFromDataIter(
  */
 XGB_DLL int XGDMatrixCreateFromCSREx(const size_t* indptr,
                                      const unsigned* indices,
-                                     const float* data,
+                                     const double* data,
                                      size_t nindptr,
                                      size_t nelem,
                                      size_t num_col,
@@ -159,7 +159,7 @@ XGB_DLL int XGDMatrixCreateFromCSREx(const size_t* indptr,
  */
 XGB_DLL int XGDMatrixCreateFromCSCEx(const size_t* col_ptr,
                                      const unsigned* indices,
-                                     const float* data,
+                                     const double* data,
                                      size_t nindptr,
                                      size_t nelem,
                                      size_t num_row,
@@ -174,10 +174,10 @@ XGB_DLL int XGDMatrixCreateFromCSCEx(const size_t* col_ptr,
  * \param out created dmatrix
  * \return 0 when success, -1 when failure happens
  */
-XGB_DLL int XGDMatrixCreateFromMat(const float *data,
+XGB_DLL int XGDMatrixCreateFromMat(const double *data,
                                    bst_ulong nrow,
                                    bst_ulong ncol,
-                                   float missing,
+                                   double missing,
                                    DMatrixHandle *out);
 /*!
  * \brief create matrix content from dense matrix
@@ -189,9 +189,9 @@ XGB_DLL int XGDMatrixCreateFromMat(const float *data,
  * \param nthread number of threads (up to maximum cores available, if <=0 use all cores)
  * \return 0 when success, -1 when failure happens
  */
-XGB_DLL int XGDMatrixCreateFromMat_omp(const float *data,  // NOLINT
+XGB_DLL int XGDMatrixCreateFromMat_omp(const double *data,  // NOLINT
                                        bst_ulong nrow, bst_ulong ncol,
-                                       float missing, DMatrixHandle *out,
+                                       double missing, DMatrixHandle *out,
                                        int nthread);
 /*!
  * \brief create matrix content from python data table
@@ -236,16 +236,16 @@ XGB_DLL int XGDMatrixFree(DMatrixHandle handle);
 XGB_DLL int XGDMatrixSaveBinary(DMatrixHandle handle,
                                 const char *fname, int silent);
 /*!
- * \brief set float vector to a content in info
+ * \brief set double vector to a content in info
  * \param handle a instance of data matrix
  * \param field field name, can be label, weight
- * \param array pointer to float vector
+ * \param array pointer to double vector
  * \param len length of array
  * \return 0 when success, -1 when failure happens
  */
 XGB_DLL int XGDMatrixSetFloatInfo(DMatrixHandle handle,
                                   const char *field,
-                                  const float *array,
+                                  const double *array,
                                   bst_ulong len);
 /*!
  * \brief set uint32 vector to a content in info
@@ -270,7 +270,7 @@ XGB_DLL int XGDMatrixSetGroup(DMatrixHandle handle,
                               const unsigned *group,
                               bst_ulong len);
 /*!
- * \brief get float info vector from matrix
+ * \brief get double info vector from matrix
  * \param handle a instance of data matrix
  * \param field field name
  * \param out_len used to set result length
@@ -280,7 +280,7 @@ XGB_DLL int XGDMatrixSetGroup(DMatrixHandle handle,
 XGB_DLL int XGDMatrixGetFloatInfo(const DMatrixHandle handle,
                                   const char *field,
                                   bst_ulong* out_len,
-                                  const float **out_dptr);
+                                  const double **out_dptr);
 /*!
  * \brief get uint32 info vector from matrix
  * \param handle a instance of data matrix
@@ -360,8 +360,8 @@ XGB_DLL int XGBoosterUpdateOneIter(BoosterHandle handle,
  */
 XGB_DLL int XGBoosterBoostOneIter(BoosterHandle handle,
                                   DMatrixHandle dtrain,
-                                  float *grad,
-                                  float *hess,
+                                  double *grad,
+                                  double *hess,
                                   bst_ulong len);
 /*!
  * \brief get evaluation statistics for xgboost
@@ -399,7 +399,7 @@ XGB_DLL int XGBoosterPredict(BoosterHandle handle,
                              int option_mask,
                              unsigned ntree_limit,
                              bst_ulong *out_len,
-                             const float **out_result);
+                             const double **out_result);
 
 /*!
  * \brief load model from existing file

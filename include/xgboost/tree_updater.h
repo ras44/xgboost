@@ -55,7 +55,7 @@ class TreeUpdater {
    *         updated by the time this function returns.
    */
   virtual bool UpdatePredictionCache(const DMatrix* data,
-                                     HostDeviceVector<bst_float>* out_preds) {
+                                     HostDeviceVector<bst_double>* out_preds) {
     return false;
   }
 
